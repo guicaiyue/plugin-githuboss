@@ -1,0 +1,61 @@
+apiVersion: storage.halo.run/v1alpha1
+kind: PolicyTemplate
+metadata:
+  name: githuboss
+spec:
+  displayName: GitHub OSS
+  settingName: githubass-policy-template-setting
+---
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: githubass-policy-template-setting
+spec:
+  forms:
+    - group: default
+      formSchema:
+        - $formkit: text
+          name: owner
+          label: 账户名
+          validation: required
+        - $formkit: text
+          name: repo
+          label: 仓库名
+          validation: required
+        - $formkit: text
+          name: path
+          label: 上传目录
+          placeholder: 如不填写，则默认上传到根目录
+        - $formkit: text
+          name: branch
+          label: 分支
+          value: master
+          placeholder: 仓库分支
+          validation: required
+        - $formkit: password
+          name: token
+          label: 凭据
+          validation: required
+        - $formkit: text
+          name: path
+          label: 上传目录
+          placeholder: 如不填写，则默认上传到根目录
+        - $formkit: radio
+          name: jsdelivr
+          label: jsdelivr访问前缀
+          value: gcore.jsdelivr.net
+          options:
+            - label: gcore.jsdelivr.net
+              value: gcore.jsdelivr.net
+            - label: cdn.jsdelivr.net
+              value: cdn.jsdelivr.net
+            - label: fastly.jsdelivr.net
+              value: fastly.jsdelivr.net
+            - label: originfastly.jsdelivr.net
+              value: originfastly.jsdelivr.net
+            - label: quantil.jsdelivr.net
+              value: quantil.jsdelivr.net
+        - $formkit: textarea
+          name: allow_extensions
+          label: 允许上传的文件类型
+          placeholder: 使用半角逗号分隔

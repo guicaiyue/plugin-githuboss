@@ -4,8 +4,10 @@ plugins {
     id 'java'
 }
 
-group 'run.halo.starter'
+group 'run.halo.githuboss'
 sourceCompatibility = JavaVersion.VERSION_17
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
 
 repositories {
     maven { url 'https://s01.oss.sonatype.org/content/repositories/releases' }
@@ -36,28 +38,9 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    implementation 'cn.hutool:hutool-json:5.8.16'
 }
 
 test {
     useJUnitPlatform()
-}
-
-node {
-    nodeProjectDir = file("${project.projectDir}/console")
-}
-
-task buildFrontend(type: NpxTask) {
-    command = 'pnpm'
-    args = ['build']
-}
-
-task pnpmInstall(type: NpxTask) {
-    command = "pnpm"
-    args = ["install"]
-}
-
-build {
-    // build frontend before build
-    tasks.getByName('compileJava').dependsOn('buildFrontend')
-    tasks.getByName("buildFrontend").dependsOn("pnpmInstall")
 }

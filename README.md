@@ -1,45 +1,22 @@
-# plugin-starter
+<H2 align="center">GitHubOSS <a href="https://github.com/halo-dev/halo#">Halo</a>插件</H2>
 
-Halo 2.0 插件开发快速开始模板。
+<p align="center">
+<a href="https://github.com/AirboZH/plugin-uposs/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/AirboZH/plugin-uposs.svg?style=flat-square&include_prereleases" /></a>
+<a href="https://github.com/AirboZH/plugin-uposs/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/AirboZH/plugin-uposs.svg?style=flat-square" /></a>
+<br />
+<a href="https://github.com/AirboZH/plugin-uposs/issues">Issues</a>
+<a href="mailto:airbozh@gmail.com">邮箱</a>
+</p>
 
-## 开发环境
+------------------------------
 
-插件开发的详细文档请查阅：<https://docs.halo.run/developer-guide/plugin/hello-world>
+## **为 Halo 2.0 提供GitHub OSS 的存储策略**
 
-```bash
-git clone git@github.com:halo-sigs/plugin-starter.git
 
-# 或者当你 fork 之后
+### 生产构建
 
-git clone git@github.com:{your_github_id}/plugin-starter.git
 ```
-
-```bash
-cd path/to/plugin-starter
-```
-
-```bash
-# macOS / Linux
-./gradlew pnpmInstall
-
-# Windows
-./gradlew.bat pnpmInstall
-```
-
-```bash
-# macOS / Linux
 ./gradlew build
-
-# Windows
-./gradlew.bat build
 ```
 
-修改 Halo 配置文件：
-
-```yaml
-halo:
-  plugin:
-    runtime-mode: development
-    fixedPluginPath:
-      - "/path/to/plugin-starter"
-```
+构建完成之后，可以在 build/libs 目录得到插件的 JAR 包，在 Halo 后台的插件管理上传即可。

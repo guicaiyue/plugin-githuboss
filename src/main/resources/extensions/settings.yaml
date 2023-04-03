@@ -1,0 +1,19 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: githuboss-settings
+spec:
+  forms:
+    - group: basic
+      label: 基本设置
+      formSchema:
+        - $formkit: text
+          help: 更新 Github 时需要的邮箱账号
+          label: 邮箱账号
+          name: email
+          validation: required|email
+        - $formkit: text
+          help: 更新 Github 时需要的用户名
+          label: 用户账号
+          name: name
+          validation: required

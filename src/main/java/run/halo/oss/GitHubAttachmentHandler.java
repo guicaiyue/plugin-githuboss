@@ -19,7 +19,6 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.util.UriUtils;
-import org.thymeleaf.model.IModelFactory;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -32,9 +31,7 @@ import run.halo.app.core.extension.attachment.endpoint.AttachmentHandler;
 import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.Metadata;
 import run.halo.app.extension.ReactiveExtensionClient;
-import run.halo.app.infra.SystemSetting;
 import run.halo.app.infra.utils.JsonUtils;
-import run.halo.app.plugin.SettingFetcher;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
@@ -51,8 +48,8 @@ import java.util.function.Supplier;
 @Slf4j
 @Extension
 public class GitHubAttachmentHandler implements AttachmentHandler {
-    final static String handlerName = "githuboss";
-    private static final String OBJECT_KEY = "github.plugin.halo.run/object-key";
+    public final static String handlerName = "githuboss";
+    public static final String OBJECT_KEY = "github.plugin.halo.run/object-key";
     private static final String API_CONTENTS = "https://api.github.com/repos/{owner}/{repo}/contents/{path}";
     private static final String API_TREE = "https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}";
     private static WebClient webClient;
@@ -74,6 +71,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
         this.extensionClient = extensionClient;
+        GitHubPolicyHandler.initWatch(this.extensionClient,this);
     }
 
     @Override
@@ -287,36 +285,43 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         // 不为空代表存在这个文件
         return getFileSha(properties,objectKey).flatMap(data-> Mono.just(StrUtil.isNotBlank(data)));
     }
-    // 获取文件在仓库中的sha值
-    public Mono<String> getFileSha(GithubOssProperties properties, String objectKey) {
-        int index = objectKey.lastIndexOf("/");
-        final String filePath = index == -1?"":objectKey.substring(0,index);
-        final String fileName = index == -1?objectKey:objectKey.substring(index+1);
-        debug("获取sha值，路径："+filePath+" 文件名: "+fileName,null);
+
+
+    public Mono<String> getFileShaList(GithubOssProperties properties, String filePath) {
         // Perform further operations on the result
         return webClient.method(HttpMethod.GET)
-                .uri(buildTreePath(properties,filePath))
+                .uri(buildTreePath(properties, filePath))
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .exchangeToMono(clientResponse -> {
                     if (clientResponse.statusCode().is2xxSuccessful()) {
-                        return clientResponse.bodyToMono(String.class).flatMap(data->{
-                            List<String> collect = JSONUtil.parseObj(data).getJSONArray("tree").stream().filter(f -> {
-                                JSONObject obj = JSONUtil.parseObj(f);
-                                return fileName.equals(obj.getStr("path"));
-                            }).map(m -> JSONUtil.parseObj(m).getStr("sha")).toList();
-                            if(collect.isEmpty()){
-                                return Mono.just("");
-                            }else {
-                                return Mono.just(collect.get(0));
-                            }
-                        });
+                        return clientResponse.bodyToMono(String.class);
                     } else if (clientResponse.statusCode().is4xxClientError()) {
                         return Mono.just("");
                     } else {
                         return Mono.error(new RuntimeException("Failed to check file existence"));
                     }
                 });
+    }
+
+    // 获取文件在仓库中的sha值
+    public Mono<String> getFileSha(GithubOssProperties properties, String objectKey) {
+        int index = objectKey.lastIndexOf("/");
+        final String filePath = index == -1 ? "" : objectKey.substring(0, index);
+        final String fileName = index == -1 ? objectKey : objectKey.substring(index + 1);
+        debug("获取sha值，路径：" + filePath + " 文件名: " + fileName, null);
+        // Perform further operations on the result
+        return getFileShaList(properties, filePath).flatMap(data -> {
+            List<String> collect = JSONUtil.parseObj(data).getJSONArray("tree").stream().filter(f -> {
+                JSONObject obj = JSONUtil.parseObj(f);
+                return fileName.equals(obj.getStr("path"));
+            }).map(m -> JSONUtil.parseObj(m).getStr("sha")).toList();
+            if (collect.isEmpty()) {
+                return Mono.just("");
+            } else {
+                return Mono.just(collect.get(0));
+            }
+        });
     }
 
     private <T> Mono<T> ossExecute(Supplier<Mono<T>> runnable, Runnable finalizer) {

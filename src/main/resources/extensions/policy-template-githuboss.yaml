@@ -36,10 +36,6 @@ spec:
           name: token
           label: 凭据
           validation: required
-        - $formkit: text
-          name: path
-          label: 上传目录
-          placeholder: 如不填写，则默认上传到根目录
         - $formkit: radio
           name: jsdelivr
           label: jsdelivr访问前缀
@@ -55,7 +51,12 @@ spec:
               value: originfastly.jsdelivr.net
             - label: quantil.jsdelivr.net
               value: quantil.jsdelivr.net
-        - $formkit: textarea
-          name: allow_extensions
-          label: 允许上传的文件类型
-          placeholder: 使用半角逗号分隔
+        - $formkit: radio
+          name: deleteSync
+          label: 是否同步删除
+          value: true
+          options:
+            - label: 是
+              value: true
+            - label: 否
+              value: false

@@ -36,6 +36,11 @@ spec:
           name: token
           label: 凭据
           validation: required
+        - $formkit: text
+          name: creatName
+          label: 当前账号
+          placeholder: 请填写当前账号,因为现在拿不到
+          validation: required
         - $formkit: radio
           name: jsdelivr
           label: jsdelivr访问前缀

@@ -1,8 +1,8 @@
 package run.halo.oss;
 
-import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.attachment.Attachment;
@@ -13,13 +13,12 @@ import run.halo.app.extension.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class GitHubPolicyHandler {
     private final GitHubPolicyWatcher gitHubPolicyWatcher = new GitHubPolicyWatcher();
-    private ReactiveExtensionClient extensionClient;
-    private GitHubAttachmentHandler gitHubAttachmentHandler;
+    private final ReactiveExtensionClient extensionClient;
+    private final GitHubAttachmentHandler gitHubAttachmentHandler;
 
     public GitHubPolicyHandler(ReactiveExtensionClient extensionClient, GitHubAttachmentHandler gitHubAttachmentHandler) {
         this.extensionClient = extensionClient;
@@ -43,6 +42,12 @@ public class GitHubPolicyHandler {
             Policy policy = convertTo(extension);
             if(shouldHandle(policy)){
                 var configMapName = policy.getSpec().getConfigMapName();
+                ReactiveSecurityContextHolder.getContext()
+                        .map(ctx -> {
+                            var name = ctx.getAuthentication().getName();
+                            System.out.println("000----00"+name);
+                            return name;
+                        }).subscribe();
                 extensionClient.get(ConfigMap.class, configMapName)
                         .flatMap(configMap -> Mono.just(JSONUtil.toBean(configMap.getData().get("default"),GithubOssProperties.class)))
                         .doOnNext(data -> {
@@ -67,7 +72,7 @@ public class GitHubPolicyHandler {
                             return Mono.empty();
                         }
                         Long size = f.getLong("size");
-                        Attachment attachment = buildAttachment(githubOssProperties, size, fileName, fileType,policy,"");
+                        Attachment attachment = buildAttachment(githubOssProperties, size, fileName, fileType,policy);
                         return extensionClient.create(attachment);//增加重试次数
                     })
                     .subscribe();
@@ -95,9 +100,9 @@ public class GitHubPolicyHandler {
         }
     }
 
-    Attachment buildAttachment(GithubOssProperties properties,Long size,String fileName,String fileType,Policy policy,String username) {
+    Attachment buildAttachment(GithubOssProperties properties,Long size,String fileName,String fileType,Policy policy) {
         String filePath = properties.getObjectName(fileName);
-        var externalLink = GitHubAttachmentHandler.jsdelivrConvert(properties.getOwner(), properties.getRepo(), properties.getBranch(),filePath);
+        var externalLink = GitHubAttachmentHandler.jsdelivrConvert(properties,filePath);
 
         var metadata = new Metadata();
         metadata.setName(UUID.randomUUID().toString());
@@ -114,7 +119,7 @@ public class GitHubPolicyHandler {
         attachment.setMetadata(metadata);
         attachment.setSpec(spec);
 
-        spec.setOwnerName(username);
+        spec.setOwnerName(properties.getCreatName());
         spec.setPolicyName(policy.getMetadata().getName());
 
         return attachment;

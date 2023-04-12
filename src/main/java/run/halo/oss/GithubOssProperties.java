@@ -13,6 +13,9 @@ public class GithubOssProperties {
     private String branch;
     private String path;
     private String token;
+    private String creatName;
+    private String jsdelivr;
+    private Boolean deleteSync;
 
     public String getObjectName(String filename) {
         var objectName = filename;

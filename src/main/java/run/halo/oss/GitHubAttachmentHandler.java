@@ -53,7 +53,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     private static final String API_CONTENTS = "https://api.github.com/repos/{owner}/{repo}/contents/{path}";
     private static final String API_TREE = "https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}";
     private static WebClient webClient;
-    private static String defaultMessage = "githuboss plugin commit";
+    private static final String defaultMessage = "githuboss plugin commit";
 
 
     // 用作于文件去重
@@ -99,10 +99,12 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     var objectKey = annotations.get(OBJECT_KEY);
                     var properties = getProperties(deleteContext.configMap());
                     log.info("{} is being deleted from GithubOSS", properties);
-                    ossExecute(() -> delete(objectKey, properties), null).flatMap(exit -> {
-                        log.info("was deleted successfully from GithubOSS,final result：{}", exit);
-                        return Mono.just(exit);
-                    }).block();
+                    if(properties.getDeleteSync()){
+                        ossExecute(() -> delete(objectKey, properties), null).flatMap(exit -> {
+                            log.info("was deleted successfully from GithubOSS,final result：{}", exit);
+                            return Mono.just(exit);
+                        }).block();
+                    }
                 }).map(DeleteContext::attachment);
     }
 
@@ -121,7 +123,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     }
 
     Attachment buildAttachment(GithubOssProperties properties, ObjectDetail objectDetail) {
-        var externalLink = jsdelivrConvert(properties.getOwner(), properties.getRepo(), properties.getBranch(), objectDetail.objectKey);
+        var externalLink = jsdelivrConvert(properties, objectDetail.objectKey);
 
         var metadata = new Metadata();
         metadata.setName(UUID.randomUUID().toString());
@@ -143,19 +145,17 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
 
     Mono<ObjectDetail> upload(UploadContext uploadContext, GithubOssProperties properties) {
         return Mono.just(new GitHubAttachmentHandler.FileNameHolder(uploadContext.file().filename(), properties))
-                .flatMap(fileNameHolder -> {
-                    return checkFileExistsAndRename(fileNameHolder)
-                            .flatMap(holder -> {
-                                log.info("Uploading {} into GitHub {}/{}/{}/{}", uploadContext.file().filename(),
-                                        properties.getOwner(), properties.getRepo(), properties.getPath(), holder.objectKey);
-                                return ossExecute(() -> upload(uploadContext.file(), holder), null);
-                            })
-                            .doFinally(signalType -> {
-                                if (fileNameHolder.needRemoveMapKey) {
-                                    uploadingFile.remove(fileNameHolder.getUploadingMapKey());
-                                }
-                            });
-                });
+                .flatMap(fileNameHolder -> checkFileExistsAndRename(fileNameHolder)
+                        .flatMap(holder -> {
+                            log.info("Uploading {} into GitHub {}/{}/{}/{}", uploadContext.file().filename(),
+                                    properties.getOwner(), properties.getRepo(), properties.getPath(), holder.objectKey);
+                            return ossExecute(() -> upload(uploadContext.file(), holder), null);
+                        })
+                        .doFinally(signalType -> {
+                            if (fileNameHolder.needRemoveMapKey) {
+                                uploadingFile.remove(fileNameHolder.getUploadingMapKey());
+                            }
+                        }));
     }
 
     public Mono<ObjectDetail> upload(FilePart filePart, FileNameHolder fileNameHolder) {
@@ -346,9 +346,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 .map(ConfigMap::getData)
                 .map(m-> m.get(key))
                 .mapNotNull(json-> JSONUtil.toBean(json, BasicConfig.class))
-                .onErrorMap(throwable->{
-                    return Exceptions.propagate(new RuntimeException("请检查插件主体配置是否配置"+throwable.getMessage()));
-                });
+                .onErrorMap(throwable-> Exceptions.propagate(new RuntimeException("请检查插件主体配置是否配置"+throwable.getMessage())));
     }
 
     public String buildContentsPath(GithubOssProperties properties, String filePath) {
@@ -367,8 +365,8 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     }
 
     // 返回 jsdeliver cdn路径
-    public static String jsdelivrConvert(String owner, String repo, String branch, String path) {
-        return String.format("https://cdn.jsdelivr.net/gh/%s/%s@%s/%s", owner, repo, branch, path);
+    public static String jsdelivrConvert(GithubOssProperties properties, String path) {
+        return String.format("https://%s/gh/%s/%s@%s/%s", properties.getJsdelivr(),properties.getOwner(), properties.getRepo(), properties.getBranch(), path);
     }
 
     void debug(String msg, Object object) {

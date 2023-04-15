@@ -22,7 +22,7 @@ spec:
       formSchema:
         - $formkit: radio
           name: enable
-          label: jsdelivr 加速优化
+          label: 文章内图片 jsdelivr 加速优化
           value: true
           validation: required
           options:

@@ -17,3 +17,16 @@ spec:
           label: 用户账号
           name: name
           validation: required
+    - group: article
+      label: 文章配置
+      formSchema:
+        - $formkit: radio
+          name: enable
+          label: jsdelivr 加速优化
+          value: true
+          validation: required
+          options:
+            - label: 开启
+              value: true
+            - label: 关闭
+              value: false

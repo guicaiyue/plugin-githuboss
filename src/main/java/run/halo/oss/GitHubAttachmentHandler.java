@@ -71,7 +71,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
         this.extensionClient = extensionClient;
-        GitHubPolicyHandler.initWatch(this.extensionClient,this);
+        GitHubPolicyHandler.initWatch(this.extensionClient, this);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
 
     @Override
     public Mono<Attachment> delete(DeleteContext deleteContext) {
-        debug("开始删除文件",deleteContext.attachment());
+        debug("开始删除文件", deleteContext.attachment());
         return Mono.just(deleteContext).filter(context -> this.shouldHandle(context.policy()))
                 .publishOn(Schedulers.boundedElastic())
                 .doOnNext(context -> {
@@ -99,7 +99,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     var objectKey = annotations.get(OBJECT_KEY);
                     var properties = getProperties(deleteContext.configMap());
                     log.info("{} is being deleted from GithubOSS", properties);
-                    if(properties.getDeleteSync()){
+                    if (properties.getDeleteSync()) {
                         ossExecute(() -> delete(objectKey, properties), null).flatMap(exit -> {
                             log.info("was deleted successfully from GithubOSS,final result：{}", exit);
                             return Mono.just(exit);
@@ -163,8 +163,8 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         Mono<DataBuffer> dataBufferMono = filePart.content().reduce(DataBuffer::write);
         DataBuffer dataBuffer = dataBufferMono.block();
         byte[] bytes = dataBuffer.toByteBuffer().array();
-        return getConfigMap(BasicConfig.NAME,BasicConfig.GROUP).flatMap(baseConfig->{
-            debug("配置信息",baseConfig);
+        return getConfigMap(BasicConfig.NAME, BasicConfig.GROUP).flatMap(baseConfig -> {
+            debug("配置信息", baseConfig);
             String base64Content = Base64.getEncoder().encodeToString(bytes);
             JSONObject jsonObject = new JSONObject();
             jsonObject.putOpt("committer", new JSONObject()
@@ -202,7 +202,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 debug("文件不存在", null);
                 return Mono.just(true);
             }
-            return getConfigMap(BasicConfig.NAME,BasicConfig.GROUP).flatMap(baseConfig->{
+            return getConfigMap(BasicConfig.NAME, BasicConfig.GROUP).flatMap(baseConfig -> {
                 JSONObject jsonObject = new JSONObject();
                 jsonObject.putOpt("branch", properties.getBranch());
                 jsonObject.putOpt("committer", new JSONObject()
@@ -279,11 +279,12 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     }
                 });
     }
+
     // 判断文件是否存在
-    public Mono<Boolean> checkFileExists(GithubOssProperties properties, String objectKey){
+    public Mono<Boolean> checkFileExists(GithubOssProperties properties, String objectKey) {
         debug("校验远程仓库文件是否存在: " + buildContentsPath(properties, objectKey), "");
         // 不为空代表存在这个文件
-        return getFileSha(properties,objectKey).flatMap(data-> Mono.just(StrUtil.isNotBlank(data)));
+        return getFileSha(properties, objectKey).flatMap(data -> Mono.just(StrUtil.isNotBlank(data)));
     }
 
 
@@ -341,12 +342,12 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 });
     }
 
-    public Mono<BasicConfig> getConfigMap(String name,String key) {
+    public Mono<BasicConfig> getConfigMap(String name, String key) {
         return extensionClient.fetch(ConfigMap.class, name)
                 .map(ConfigMap::getData)
-                .map(m-> m.get(key))
-                .mapNotNull(json-> JSONUtil.toBean(json, BasicConfig.class))
-                .onErrorMap(throwable-> Exceptions.propagate(new RuntimeException("请检查插件主体配置是否配置"+throwable.getMessage())));
+                .map(m -> m.get(key))
+                .mapNotNull(json -> JSONUtil.toBean(json, BasicConfig.class))
+                .onErrorMap(throwable -> Exceptions.propagate(new RuntimeException("请检查插件主体配置是否配置" + throwable.getMessage())));
     }
 
     public String buildContentsPath(GithubOssProperties properties, String filePath) {
@@ -355,7 +356,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     }
 
     // path 不用当前的存储配置的路径，可能和图片路径不符合
-    public String buildTreePath(GithubOssProperties properties,String path) {
+    public String buildTreePath(GithubOssProperties properties, String path) {
         String url = API_TREE.replace("{owner}", properties.getOwner())
                 .replace("{repo}", properties.getRepo()).replace("{branch}", properties.getBranch());
         if (StrUtil.isBlank(path)) {
@@ -366,7 +367,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
 
     // 返回 jsdeliver cdn路径
     public static String jsdelivrConvert(GithubOssProperties properties, String path) {
-        return String.format("https://%s/gh/%s/%s@%s/%s", properties.getJsdelivr(),properties.getOwner(), properties.getRepo(), properties.getBranch(), path);
+        return String.format("https://%s/gh/%s/%s@%s/%s", properties.getJsdelivr(), properties.getOwner(), properties.getRepo(), properties.getBranch(), path);
     }
 
     void debug(String msg, Object object) {

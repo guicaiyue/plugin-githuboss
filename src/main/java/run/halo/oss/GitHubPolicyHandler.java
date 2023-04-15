@@ -40,18 +40,18 @@ public class GitHubPolicyHandler {
                 return;
             }
             Policy policy = convertTo(extension);
-            if(shouldHandle(policy)){
+            if (shouldHandle(policy)) {
                 var configMapName = policy.getSpec().getConfigMapName();
                 ReactiveSecurityContextHolder.getContext()
                         .map(ctx -> {
                             var name = ctx.getAuthentication().getName();
-                            System.out.println("000----00"+name);
+                            System.out.println("000----00" + name);
                             return name;
                         }).subscribe();
                 extensionClient.get(ConfigMap.class, configMapName)
-                        .flatMap(configMap -> Mono.just(JSONUtil.toBean(configMap.getData().get("default"),GithubOssProperties.class)))
+                        .flatMap(configMap -> Mono.just(JSONUtil.toBean(configMap.getData().get("default"), GithubOssProperties.class)))
                         .doOnNext(data -> {
-                            debug("创建附件",data);
+                            debug("创建附件", data);
                             // 将GithubOssProperties对象传递给方法
                             handleAttachments(data, policy);
                         })
@@ -68,11 +68,11 @@ public class GitHubPolicyHandler {
                     .flatMap(f -> {
                         String fileName = f.getStr("path");
                         String fileType = FileNameUtils.fileType(fileName);
-                        if("file".equals(fileType)){
+                        if ("file".equals(fileType)) {
                             return Mono.empty();
                         }
                         Long size = f.getLong("size");
-                        Attachment attachment = buildAttachment(githubOssProperties, size, fileName, fileType,policy);
+                        Attachment attachment = buildAttachment(githubOssProperties, size, fileName, fileType, policy);
                         return extensionClient.create(attachment);//增加重试次数
                     })
                     .subscribe();
@@ -100,9 +100,9 @@ public class GitHubPolicyHandler {
         }
     }
 
-    Attachment buildAttachment(GithubOssProperties properties,Long size,String fileName,String fileType,Policy policy) {
+    Attachment buildAttachment(GithubOssProperties properties, Long size, String fileName, String fileType, Policy policy) {
         String filePath = properties.getObjectName(fileName);
-        var externalLink = GitHubAttachmentHandler.jsdelivrConvert(properties,filePath);
+        var externalLink = GitHubAttachmentHandler.jsdelivrConvert(properties, filePath);
 
         var metadata = new Metadata();
         metadata.setName(UUID.randomUUID().toString());

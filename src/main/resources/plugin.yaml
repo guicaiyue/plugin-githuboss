@@ -6,12 +6,12 @@ metadata:
 spec:
   enabled: true
   # 'version' is a valid semantic version string (see semver.org).
-  version: 1.0.0-SNAPSHOT
+  version: 1.0.0
   requires: ">=2.0.0"
   author:
     name: xirizhi
     website: https://guicai.work
-  logo: https://halo.run/logo
+  logo: /static/logo.jpg
   # 'homepage' usually links to the GitHub repository of the plugin
   settingName: githuboss-settings
   configMapName: githuboss-settings

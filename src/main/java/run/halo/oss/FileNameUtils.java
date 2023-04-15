@@ -7,11 +7,12 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
 /**
  * @author xirizhi
  */
 public final class FileNameUtils {
-    
+
     static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 
     private FileNameUtils() {
@@ -34,7 +35,7 @@ public final class FileNameUtils {
      * </pre>
      *
      * @param filename is name of file.
-     * @param length is for generating random string with specific length.
+     * @param length   is for generating random string with specific length.
      * @return File name with random string.
      */
     public static String randomFileName(String filename, int length) {
@@ -50,7 +51,7 @@ public final class FileNameUtils {
         return nameWithoutExt + "-" + random + "." + ext;
     }
 
-/**
+    /**
      * Change the file name to yyyyMMddHHMMss format.
      *
      * @param filename is name of file.
@@ -65,13 +66,13 @@ public final class FileNameUtils {
         return formattedDate + "." + ext;
     }
 
-    public static String fileType(String fileName){
+    public static String fileType(String fileName) {
         var ext = Files.getFileExtension(fileName);
-        if(StrUtil.isBlank(ext)){
+        if (StrUtil.isBlank(ext)) {
             return "file";
         }
-        if(isPicture(fileName)){
-            return "image/"+Files.getFileExtension(fileName);
+        if (isPicture(fileName)) {
+            return "image/" + Files.getFileExtension(fileName);
         }
         return "file";
     }

@@ -3,9 +3,6 @@ package run.halo.oss;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import io.netty.channel.ChannelOption;
-import io.netty.handler.timeout.ReadTimeoutHandler;
-import io.netty.handler.timeout.WriteTimeoutHandler;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.internal.StringUtil;
@@ -35,6 +32,7 @@ import run.halo.app.infra.utils.JsonUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -62,10 +60,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     private final ReactiveExtensionClient extensionClient;
 
     public GitHubAttachmentHandler(ReactiveExtensionClient extensionClient) {
-        HttpClient httpClient = HttpClient.create()
-                .tcpConfiguration(tcpClient -> tcpClient.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
-                        .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(10))
-                                .addHandlerLast(new WriteTimeoutHandler(10))));
+        HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(10000));
 
         webClient = WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
@@ -160,12 +155,12 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
 
     public Mono<ObjectDetail> upload(FilePart filePart, FileNameHolder fileNameHolder) {
         GithubOssProperties properties = fileNameHolder.properties;
-        Mono<DataBuffer> dataBufferMono = filePart.content().reduce(DataBuffer::write);
-        DataBuffer dataBuffer = dataBufferMono.block();
-        byte[] bytes = dataBuffer.toByteBuffer().array();
-        return getConfigMap(BasicConfig.NAME, BasicConfig.GROUP).flatMap(baseConfig -> {
+        return Mono.zip(filePart.content().reduce(DataBuffer::write),
+                getConfigMap(BasicConfig.NAME, BasicConfig.GROUP)).flatMap(tuple -> {
+            var dataBuffer = tuple.getT1();
+            var baseConfig = tuple.getT2();
             debug("配置信息", baseConfig);
-            String base64Content = Base64.getEncoder().encodeToString(bytes);
+            String base64Content = Base64.getEncoder().encodeToString(dataBuffer.toByteBuffer().array());
             JSONObject jsonObject = new JSONObject();
             jsonObject.putOpt("committer", new JSONObject()
                     .putOpt("email", baseConfig.email)
@@ -189,8 +184,16 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                                 return new GitHubAttachmentHandler.ObjectDetail(fileNameHolder.objectKey, githubVo, fileNameHolder.fileName, fileNameHolder.fileType);
                             });
                         } else {
-                            return Mono.error(new RuntimeException("Failed to upload file"));
+                            return clientResponse.bodyToMono(String.class).flatMap(body -> {
+                                log.error("上传文件失败:{}", body);
+                                return Mono.error(new RuntimeException("Failed to upload file"));
+                            });
                         }
+                    })
+                    .onErrorContinue((e, i) -> {
+                        e.printStackTrace();
+                        log.info(JSONUtil.toJsonStr(i));
+                        // Log the error here.
                     });
         });
     }

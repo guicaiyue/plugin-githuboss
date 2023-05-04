@@ -180,8 +180,12 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .bodyValue(jsonObject.toString())
                     .exchangeToMono(clientResponse -> {
+                        Mono<String> dataMap = clientResponse.bodyToMono(String.class).map(m -> {
+                            debug("上传文件调用结果", m);
+                            return m;
+                        });
                         if (clientResponse.statusCode().is2xxSuccessful()) {
-                            return clientResponse.bodyToMono(String.class).map(body -> {
+                            return dataMap.map(body -> {
                                 JSONObject entries = JSONUtil.parseObj(body).getJSONObject("content");
                                 var githubVo = new GithubVo();
                                 githubVo.setSize(entries.getLong("size"));
@@ -189,7 +193,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                                 return new GitHubAttachmentHandler.ObjectDetail(fileNameHolder.objectKey, githubVo, fileNameHolder.fileName, fileNameHolder.fileType);
                             });
                         } else {
-                            return Mono.error(new RuntimeException("Failed to upload file"));
+                            return dataMap.flatMap(m->Mono.error(new RuntimeException("Failed to upload file")));
                         }
                     });
         });
@@ -215,12 +219,16 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getToken())
                         .bodyValue(jsonObject.toString())
                         .exchangeToMono(clientResponse -> {
+                            Mono<String> dataMap = clientResponse.bodyToMono(String.class).map(m -> {
+                                debug("删除文件调用结果", m);
+                                return m;
+                            });
                             if (clientResponse.statusCode().is2xxSuccessful()) {
-                                return Mono.just(true);
+                                return dataMap.flatMap(m->Mono.just(true));
                             } else if (clientResponse.statusCode().is4xxClientError()) {
-                                return Mono.just(false);
+                                return dataMap.flatMap(m->Mono.just(false));
                             } else {
-                                return Mono.error(new RuntimeException("Failed to delete file"));
+                                return dataMap.flatMap(m->Mono.error(new RuntimeException("Failed to delete file")));
                             }
                         });
             });
@@ -295,12 +303,16 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .exchangeToMono(clientResponse -> {
+                    Mono<String> dataMap = clientResponse.bodyToMono(String.class).map(m -> {
+                        debug("查询仓库目录下文件列表", m);
+                        return m;
+                    });
                     if (clientResponse.statusCode().is2xxSuccessful()) {
-                        return clientResponse.bodyToMono(String.class);
+                        return dataMap;
                     } else if (clientResponse.statusCode().is4xxClientError()) {
-                        return Mono.just("");
+                        return dataMap.flatMap(f->Mono.just("{}"));
                     } else {
-                        return Mono.error(new RuntimeException("Failed to check file existence"));
+                        return dataMap.flatMap(f->Mono.error(new RuntimeException("Failed to check file existence")));
                     }
                 });
     }

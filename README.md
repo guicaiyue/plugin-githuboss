@@ -1,11 +1,11 @@
 <H2 align="center">GitHubOSS <a href="https://github.com/halo-dev/halo#">Halo</a>插件</H2>
 
 <p align="center">
-<a href="https://github.com/AirboZH/plugin-uposs/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/AirboZH/plugin-uposs.svg?style=flat-square&include_prereleases" /></a>
-<a href="https://github.com/AirboZH/plugin-uposs/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/AirboZH/plugin-uposs.svg?style=flat-square" /></a>
+<a href="https://github.com/guicaiyue/plugin-githuboss/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/AirboZH/plugin-uposs.svg?style=flat-square&include_prereleases" /></a>
+<a href="https://github.com/guicaiyue/plugin-githuboss/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/AirboZH/plugin-uposs.svg?style=flat-square" /></a>
 <br />
-<a href="https://github.com/AirboZH/plugin-uposs/issues">Issues</a>
-<a href="mailto:airbozh@gmail.com">邮箱</a>
+<a href="https://github.com/guicaiyue/plugin-githuboss/issues">Issues</a>
+<a href="mailto:2941328431@qq.com">邮箱</a>
 </p>
 
 ------------------------------

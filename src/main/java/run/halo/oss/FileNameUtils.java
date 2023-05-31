@@ -13,7 +13,7 @@ import java.util.Date;
  */
 public final class FileNameUtils {
 
-    static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+    static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
 
     private FileNameUtils() {
     }

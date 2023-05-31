@@ -17,6 +17,12 @@ spec:
           label: 用户账号
           name: name
           validation: required
+        - $formkit: number
+          help: 多文件上传时最大并行数,请考虑带宽
+          label: 上传并行数
+          name: updateMax
+          value: 3
+          validation: required
     - group: article
       label: 文章配置
       formSchema:

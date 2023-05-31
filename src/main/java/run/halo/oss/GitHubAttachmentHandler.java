@@ -20,6 +20,7 @@ import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 import reactor.util.retry.Retry;
 import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.Constant;
@@ -60,13 +61,24 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     private final ReactiveExtensionClient extensionClient;
 
     public GitHubAttachmentHandler(ReactiveExtensionClient extensionClient) {
-        HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofMillis(10000));
+        this.extensionClient = extensionClient;
+        GitHubPolicyHandler.initWatch(this.extensionClient, this);
+
+        BasicConfig basicConfig = getConfigMap(BasicConfig.NAME, BasicConfig.GROUP).block();
+        int updateMax = 3;
+        if (basicConfig != null && basicConfig.getUpdateMax() != null) {
+            updateMax = basicConfig.getUpdateMax();
+        }
+        debug("初始化请求最大并发数" + updateMax, null);
+        ConnectionProvider connectionProvider = ConnectionProvider.builder("githubOssConnectionProvider")
+                .maxConnections(updateMax) // 最大同时请求数
+                .pendingAcquireMaxCount(100) // 等待队列大小
+                .build();
+        HttpClient httpClient = HttpClient.create(connectionProvider).responseTimeout(Duration.ofMillis(60000));
 
         webClient = WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
-        this.extensionClient = extensionClient;
-        GitHubPolicyHandler.initWatch(this.extensionClient, this);
     }
 
     @Override
@@ -153,6 +165,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                         }));
     }
 
+    // 发起请求上传文件
     public Mono<ObjectDetail> upload(FilePart filePart, FileNameHolder fileNameHolder) {
         GithubOssProperties properties = fileNameHolder.properties;
         return Mono.zip(filePart.content().reduce(DataBuffer::write),
@@ -176,7 +189,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     .bodyValue(jsonObject.toString())
                     .exchangeToMono(clientResponse -> {
                         Mono<String> dataMap = clientResponse.bodyToMono(String.class).map(m -> {
-                            debug("上传文件调用结果", m);
+                            debug(String.format("上传文件 %s 调用状态码：%s", fileNameHolder.objectKey, clientResponse.statusCode().value()), m);
                             return m;
                         });
                         if (clientResponse.statusCode().is2xxSuccessful()) {
@@ -224,11 +237,11 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                                 return m;
                             });
                             if (clientResponse.statusCode().is2xxSuccessful()) {
-                                return dataMap.flatMap(m->Mono.just(true));
+                                return dataMap.flatMap(m -> Mono.just(true));
                             } else if (clientResponse.statusCode().is4xxClientError()) {
-                                return dataMap.flatMap(m->Mono.just(false));
+                                return dataMap.flatMap(m -> Mono.just(false));
                             } else {
-                                return dataMap.flatMap(m->Mono.error(new RuntimeException("Failed to delete file")));
+                                return dataMap.flatMap(m -> Mono.error(new RuntimeException("Failed to delete file")));
                             }
                         });
             });
@@ -295,7 +308,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         return getFileSha(properties, objectKey).flatMap(data -> Mono.just(StrUtil.isNotBlank(data)));
     }
 
-
+    // 获取 github 目录下所有文件列表
     public Mono<String> getFileShaList(GithubOssProperties properties, String filePath) {
         // Perform further operations on the result
         return webClient.method(HttpMethod.GET)
@@ -310,9 +323,9 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                     if (clientResponse.statusCode().is2xxSuccessful()) {
                         return dataMap;
                     } else if (clientResponse.statusCode().is4xxClientError()) {
-                        return dataMap.flatMap(f->Mono.just("{}"));
+                        return dataMap.flatMap(f -> Mono.just("{}"));
                     } else {
-                        return dataMap.flatMap(f->Mono.error(new RuntimeException("Failed to check file existence")));
+                        return dataMap.flatMap(f -> Mono.error(new RuntimeException("Failed to check file existence")));
                     }
                 });
     }
@@ -354,6 +367,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
                 });
     }
 
+    // 获取插件主体配置
     public Mono<BasicConfig> getConfigMap(String name, String key) {
         return extensionClient.fetch(ConfigMap.class, name)
                 .map(ConfigMap::getData)
@@ -438,5 +452,6 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         public static final String GROUP = "basic";
         String email;
         String name;
+        Integer updateMax;
     }
 }

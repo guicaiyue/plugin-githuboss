@@ -12,6 +12,7 @@ public class GithubOssProperties {
     private String repo;
     private String branch;
     private String path;
+    private Boolean namePrefix;
     private String token;
     private String creatName;
     private String jsdelivr;

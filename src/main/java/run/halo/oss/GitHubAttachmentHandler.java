@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.google.common.io.Files;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.internal.StringUtil;
@@ -422,6 +423,13 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
 
         FileNameHolder(String fileName, GithubOssProperties properties) {
             this.fileName = FileNameUtils.formatDateInFileName(fileName);
+            if(properties.getNamePrefix()){
+                String mainFilename = Files.getNameWithoutExtension(fileName);
+                if(mainFilename.length()>15){
+                    mainFilename = mainFilename.substring(0,15);
+                }
+                this.fileName = mainFilename +"-"+this.fileName;
+            }
             this.objectKey = properties.getObjectName(this.fileName);
             this.fileType = FileNameUtils.fileType(this.fileName);
             this.originalFileName = fileName;

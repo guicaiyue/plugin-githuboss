@@ -54,16 +54,24 @@ public final class FileNameUtils {
     /**
      * Change the file name to yyyyMMddHHMMss format.
      *
-     * @param filename is name of file.
+     * @param fileName is name of file.
      * @return File name with yyyyMMddHHMMss format.
      */
-    public static String formatDateInFileName(String filename) {
-        var ext = Files.getFileExtension(filename);
+    public static String formatDateInFileName(String fileName,Boolean namePrefix) {
+        var ext = Files.getFileExtension(fileName);
         var formattedDate = dateFormat.format(new Date());
         if (StringUtils.isBlank(ext)) {
             return formattedDate;
         }
-        return formattedDate + "." + ext;
+        String mainFilename = "";
+        if(namePrefix != null && namePrefix){
+            mainFilename = Files.getNameWithoutExtension(fileName);
+            if(mainFilename.length()>15){
+                mainFilename = mainFilename.substring(0,15);
+            }
+            mainFilename = "-" +mainFilename;
+        }
+        return formattedDate + mainFilename + "." + ext;
     }
 
     public static String fileType(String fileName) {

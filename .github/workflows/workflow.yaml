@@ -1,6 +1,7 @@
 name: Build Plugin JAR File
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   release:
@@ -11,11 +12,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Set up JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           cache: 'gradle'
@@ -28,7 +29,7 @@ jobs:
           sed -i "s/version=.*-SNAPSHOT$/version=$version/1" gradle.properties
           ./gradlew clean build -x test
       - name: Archive plugin-githuboss jar
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: plugin-githuboss
           path: |
@@ -41,7 +42,7 @@ jobs:
     if: github.event_name == 'release'
     steps:
       - name: Download plugin-githuboss jar
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: plugin-githuboss
           path: build/libs
@@ -56,7 +57,7 @@ jobs:
           echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
           echo "RELEASE_ID=${{ github.event.release.id }}" >> $GITHUB_ENV
       - name: Upload a Release Asset
-        uses: actions/github-script@v2
+        uses: actions/github-script@v7
         if: github.event_name == 'release'
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}

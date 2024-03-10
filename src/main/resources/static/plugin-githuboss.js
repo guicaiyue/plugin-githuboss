@@ -19,7 +19,7 @@
 
     // 根据浏览器设置的语言判断用户是否在中国
     const isInChina = () => {
-        const chinaRegexp = /((\u4e00-\u9fa5|[\uFE30-\uFFA0])+)/g;
+        const chinaRegexp = /\s*zh-(CN|cn)\s*/g;
         return chinaRegexp.test(navigator.language || navigator.browserLanguage || navigator.userLanguage);
     };
 

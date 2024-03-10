@@ -1,6 +1,7 @@
 package run.halo.oss;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import lombok.Data;
@@ -34,10 +35,7 @@ import run.halo.app.infra.utils.JsonUtils;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
@@ -338,7 +336,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         debug("获取sha值，路径：" + filePath + " 文件名: " + fileName, null);
         // Perform further operations on the result
         return getFileShaList(properties, filePath).flatMap(data -> {
-            List<String> collect = JSONUtil.parseObj(data).getJSONArray("tree").stream().filter(f -> {
+            List<String> collect = Optional.ofNullable(JSONUtil.parseObj(data).getJSONArray("tree")).orElse(new JSONArray()).stream().filter(f -> {
                 JSONObject obj = JSONUtil.parseObj(f);
                 return fileName.equals(obj.getStr("path"));
             }).map(m -> JSONUtil.parseObj(m).getStr("sha")).toList();

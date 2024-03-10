@@ -6,7 +6,7 @@ metadata:
 spec:
   enabled: true
   # 'version' is a valid semantic version string (see semver.org).
-  version: 1.0.2
+  version: 1.0.3
   requires: ">=2.0.0"
   author:
     name: xirizhi

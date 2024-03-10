@@ -32,6 +32,16 @@ spec:
           value: master
           placeholder: 仓库分支
           validation: required
+        - $formkit: radio
+          name: namePrefix
+          label: 原文件名当后缀
+          value: false
+          placeholder: 默认文件重命名[yyyyMMddHHmmssSSS]日期格式，开启后重命名[yyyyMMddHHmmssSSS-原文件名],原文件名最长保留15个字符
+          options:
+            - label: 是
+              value: true
+            - label: 否
+              value: false
         - $formkit: password
           name: token
           label: 凭据

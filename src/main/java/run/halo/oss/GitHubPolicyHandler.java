@@ -45,7 +45,7 @@ public class GitHubPolicyHandler {
                 ReactiveSecurityContextHolder.getContext()
                         .map(ctx -> {
                             var name = ctx.getAuthentication().getName();
-                            System.out.println("000----00" + name);
+                            debug("获取文件名", name);
                             return name;
                         }).subscribe();
                 extensionClient.get(ConfigMap.class, configMapName)

@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.google.common.io.Files;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.internal.StringUtil;
@@ -375,6 +376,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
     }
 
     public String buildContentsPath(GithubOssProperties properties, String filePath) {
+        filePath = filePath.startsWith("/")?filePath.substring(1):filePath;
         return API_CONTENTS.replace("{owner}", properties.getOwner())
                 .replace("{repo}", properties.getRepo()).replace("{path}", filePath);
     }
@@ -386,6 +388,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         if (StrUtil.isBlank(path)) {
             return url;
         }
+        path = path.startsWith("/")?path.substring(1):path;
         return url + ":" + path;
     }
 
@@ -421,7 +424,7 @@ public class GitHubAttachmentHandler implements AttachmentHandler {
         boolean needRemoveMapKey = false;
 
         FileNameHolder(String fileName, GithubOssProperties properties) {
-            this.fileName = FileNameUtils.formatDateInFileName(fileName);
+            this.fileName = FileNameUtils.formatDateInFileName(fileName,properties.getNamePrefix());
             this.objectKey = properties.getObjectName(this.fileName);
             this.fileType = FileNameUtils.fileType(this.fileName);
             this.originalFileName = fileName;

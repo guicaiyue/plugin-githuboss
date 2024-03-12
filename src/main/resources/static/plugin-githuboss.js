@@ -36,11 +36,15 @@
 
     // 测试哪个域名速度最快
     const testDomainSpeed = async (domain) => {
-        const startTime = performance.now();
-        const url = `${domain}${testFilePath}`;
-        const response = await fetch(url, {mode: "no-cors"});
-        const endTime = performance.now();
-        return endTime - startTime;
+        try {
+            const startTime = performance.now();
+            const url = `${domain}${testFilePath}`;
+            const response = await fetch(url, {mode: "no-cors"});
+            const endTime = performance.now();
+            return endTime - startTime;
+        }catch (e) {
+            return 9999999;
+        }
     };
 
     // 获取最快的域名

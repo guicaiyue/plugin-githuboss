@@ -7,7 +7,7 @@ spec:
   enabled: true
   # 'version' is a valid semantic version string (see semver.org).
   version: 1.0.3
-  requires: ">=2.0.0"
+  requires: ">=2.11.0"
   author:
     name: xirizhi
     website: https://guicai.work

@@ -1,4 +1,4 @@
-package run.halo.oss;
+package run.halo.oss.html;
 
 import cn.hutool.json.JSONUtil;
 import lombok.Data;
@@ -13,6 +13,9 @@ import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.theme.dialect.TemplateHeadProcessor;
 
+/**
+ * 模板处理器，打开主题时处理，增加引入js的html片段
+ */
 @Component
 public class ImageSrcHeadProcessor implements TemplateHeadProcessor {
 

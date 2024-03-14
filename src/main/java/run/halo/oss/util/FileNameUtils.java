@@ -1,12 +1,11 @@
-package run.halo.oss;
+package run.halo.oss.util;
 
 import cn.hutool.core.util.StrUtil;
 import com.google.common.io.Files;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.StringUtils;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * @author xirizhi

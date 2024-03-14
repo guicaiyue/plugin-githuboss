@@ -1,4 +1,4 @@
-package run.halo.oss;
+package run.halo.oss.config;
 
 import lombok.Data;
 import org.springframework.util.StringUtils;

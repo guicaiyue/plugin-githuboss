@@ -1,0 +1,7 @@
+apiVersion: storage.halo.run/v1alpha1
+kind: PolicyTemplate
+metadata:
+  name: githuboss-policy-template
+spec:
+  displayName: GitHub OSS 存储策略
+  settingName: githuboss-policy-settings

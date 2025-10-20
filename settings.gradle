@@ -3,5 +3,5 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-rootProject.name = 'plugin-githuboss'
-
+rootProject.name = 'plugin-plugin-githuboss'
+include 'ui'

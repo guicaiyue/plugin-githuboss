@@ -1,38 +1,13 @@
 apiVersion: v1alpha1
 kind: Setting
 metadata:
-  name: githuboss-settings
+  name: plugin-githuboss-settings
 spec:
   forms:
-    - group: basic
-      label: 基本设置
+    - group: health
+      label: 健康检查
       formSchema:
         - $formkit: text
-          help: 更新 Github 时需要的邮箱账号
-          label: 邮箱账号
-          name: email
-          validation: required|email
-        - $formkit: text
-          help: 更新 Github 时需要的用户名
-          label: 用户账号
-          name: name
-          validation: required
-        - $formkit: number
-          help: 多文件上传时最大并行数,请考虑带宽
-          label: 上传并行数
-          name: updateMax
-          value: 3
-          validation: required
-    - group: article
-      label: 文章配置
-      formSchema:
-        - $formkit: radio
-          name: enable
-          label: 文章内图片 jsdelivr 加速优化
-          value: true
-          validation: required
-          options:
-            - label: 开启
-              value: true
-            - label: 关闭
-              value: false
+          name: status
+          label: 状态
+          value: "未检查"

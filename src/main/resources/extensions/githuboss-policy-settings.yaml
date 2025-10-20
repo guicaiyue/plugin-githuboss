@@ -1,0 +1,45 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: githuboss-policy-settings
+spec:
+  forms:
+    - group: default
+      formSchema:
+        - $formkit: text
+          name: owner
+          label: 账户名
+          validation: required
+        - $formkit: text
+          name: repoName
+          label: 仓库名称
+          validation: required
+        - $formkit: text
+          name: path
+          label: 上传目录
+          placeholder: 如不填写，则默认上传到根目录
+        - $formkit: text
+          name: branch
+          label: 分支
+          value: master
+          placeholder: 仓库分支
+          validation: required
+        - $formkit: radio
+          name: namePrefix
+          label: 原文件名当后缀
+          value: false
+          placeholder: 默认文件重命名[yyyyMMddHHmmssSSS]日期格式，开启后重命名[yyyyMMddHHmmssSSS-原文件名],原文件名最长保留15个字符
+          options:
+            - label: 是
+              value: true
+            - label: 否
+              value: false
+        - $formkit: password
+          name: token
+          label: 凭据
+          validation: required
+        - $formkit: text
+          name: creatName
+          label: 当前账号
+          placeholder: 请填写当前账号,因为现在拿不到
+          validation: required

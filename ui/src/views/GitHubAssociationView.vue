@@ -291,7 +291,7 @@ import {
   IconCheckboxCircle,
   IconRefreshLine
 } from '@halo-dev/components'
-import { coreApiClient } from '@halo-dev/api-client'
+import { coreApiClient,axiosInstance  } from '@halo-dev/api-client'
 
 // 路由
 const router = useRouter()
@@ -412,7 +412,6 @@ const fetchPolicies = async () => {
   try {
     // 使用 coreApiClient 获取所有存储策略列表
     const { data } = await coreApiClient.storage.policy.listPolicy()
-
     // 过滤出 GitHub OSS 策略并转换为选项格式
     policyOptions.value = data.items
       .filter(policy => policy.spec?.templateName === 'githuboss-policy-template')
@@ -420,7 +419,7 @@ const fetchPolicies = async () => {
         label: policy.spec?.displayName || policy.metadata?.name || '未命名策略',
         value: policy.metadata?.name || ''
       }))
-
+    console.log(data.items);
     // 如果没有找到 GitHub OSS 策略，显示提示
     if (policyOptions.value.length === 0) {
       policyOptions.value = [
@@ -459,6 +458,10 @@ const fetchS3Objects = async () => {
 
   isFetching.value = true
   try {
+    axiosInstance.get(`/apis/githubOs.halo.run/v1alpha1/github/oss/list?policyName=${policyName.value}`).then(response => {
+      // handle response
+      console.log(response.data)
+    })
     // 模拟获取 S3 对象数据
     await new Promise(resolve => setTimeout(resolve, 500))
 

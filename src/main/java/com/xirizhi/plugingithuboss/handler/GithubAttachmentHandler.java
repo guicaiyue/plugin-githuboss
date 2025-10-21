@@ -1,8 +1,11 @@
-package com.xirizhi.plugingithuboss.service;
+package com.xirizhi.plugingithuboss.handler;
 
 import com.xirizhi.plugingithuboss.exception.GitHubExceptionHandler;
 import com.xirizhi.plugingithuboss.extension.AttachmentRecord;
+import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
+import com.xirizhi.plugingithuboss.service.GitHubService;
+
 import lombok.extern.slf4j.Slf4j;
 import org.pf4j.Extension;
 import org.springframework.http.codec.multipart.FilePart;
@@ -13,13 +16,13 @@ import run.halo.app.core.extension.attachment.Policy;
 import run.halo.app.core.extension.attachment.endpoint.AttachmentHandler;
 import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.infra.utils.JsonUtils;
 
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 
 /**
  * GitHub OSS 附件处理器：将上传/删除能力挂接到 Halo 的附件扩展点。
@@ -41,57 +44,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         this.gitHubService = gitHubService;
     }
     
-    /**
-     * 从 JSON 字符串中提取指定字段的值
-     * 这是一个简单的 JSON 解析方法，用于处理配置数据
-     */
-    private String extractJsonValue(String json, String key) {
-        if (json == null || key == null) {
-            return null;
-        }
-        
-        // 查找 "key": 的位置
-        String searchPattern = "\"" + key + "\":";
-        int startIndex = json.indexOf(searchPattern);
-        if (startIndex == -1) {
-            return null;
-        }
-        
-        // 移动到值的开始位置
-        startIndex += searchPattern.length();
-        
-        // 跳过空格
-        while (startIndex < json.length() && Character.isWhitespace(json.charAt(startIndex))) {
-            startIndex++;
-        }
-        
-        if (startIndex >= json.length()) {
-            return null;
-        }
-        
-        char firstChar = json.charAt(startIndex);
-        
-        // 处理字符串值（被引号包围）
-        if (firstChar == '"') {
-            int endIndex = json.indexOf('"', startIndex + 1);
-            if (endIndex == -1) {
-                return null;
-            }
-            return json.substring(startIndex + 1, endIndex);
-        }
-        
-        // 处理布尔值或数字值
-        int endIndex = startIndex;
-        while (endIndex < json.length()) {
-            char c = json.charAt(endIndex);
-            if (c == ',' || c == '}' || Character.isWhitespace(c)) {
-                break;
-            }
-            endIndex++;
-        }
-        
-        return json.substring(startIndex, endIndex);
-    }
+    // 已移除旧的手工 JSON 解析方法，改用 JsonUtils + GithubOssPolicySettings 类型化解析。
 
     /**
      * 上传文件：
@@ -110,7 +63,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             return Mono.error(new IllegalArgumentException("配置为空"));
         }
         
-
+        
         
         // 解析嵌套的配置数据
         String configJson = cfg.getData().get("default");
@@ -118,14 +71,20 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             return Mono.error(new IllegalArgumentException("配置数据为空"));
         }
         
-        // 简单的 JSON 解析（手动解析关键字段）
-        final String owner = extractJsonValue(configJson, "owner");
-        final String repoName = extractJsonValue(configJson, "repoName");
-        final String branch = extractJsonValue(configJson, "branch");
-        final String path = extractJsonValue(configJson, "path");
-        final String token = extractJsonValue(configJson, "token");
-        final String creatName = extractJsonValue(configJson, "creatName");
-        final String namePrefix = extractJsonValue(configJson, "namePrefix");
+        // 使用 JsonUtils 反序列化配置对象，替代手工解析
+        final GithubOssPolicySettings settings;
+        try {
+            settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
+        } catch (Exception e) {
+            return Mono.error(new IllegalArgumentException("配置解析失败: " + e.getMessage(), e));
+        }
+        
+        final String owner = settings.getOwner();
+        final String repoName = settings.getRepoName();
+        final String branch = settings.getBranch();
+        final String path = settings.getPath();
+        final String token = settings.getToken();
+        final Boolean namePrefix = settings.getNamePrefix();
         
         // 校验必需字段
         if (owner == null || owner.isBlank()) {
@@ -163,7 +122,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         
         // 根据 namePrefix 配置决定文件名格式
         final String filename;
-        if ("true".equals(namePrefix) && originalFilename != null && !originalFilename.isBlank()) {
+        if (Boolean.TRUE.equals(namePrefix) && originalFilename != null && !originalFilename.isBlank()) {
             // 保留原文件名作为后缀，最长15个字符
             String originalName = originalFilename;
             if (originalName.length() > 15) {
@@ -267,11 +226,18 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             return Mono.error(new IllegalArgumentException("配置数据为空"));
         }
         
-        // 简单的 JSON 解析（手动解析关键字段）
-        final String owner = extractJsonValue(configJson, "owner");
-        final String repoName = extractJsonValue(configJson, "repoName");
-        final String token = extractJsonValue(configJson, "token");
-        final String branch = extractJsonValue(configJson, "branch");
+        // 使用 JsonUtils 反序列化配置对象，替代手工解析
+        final GithubOssPolicySettings settings;
+        try {
+            settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
+        } catch (Exception e) {
+            return Mono.error(new IllegalArgumentException("配置解析失败: " + e.getMessage(), e));
+        }
+        
+        final String owner = settings.getOwner();
+        final String repoName = settings.getRepoName();
+        final String token = settings.getToken();
+        final String branch = settings.getBranch();
         
         // 校验必需字段
         if (owner == null || owner.isBlank()) {
@@ -349,10 +315,11 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                 return Mono.error(new IllegalArgumentException("配置数据为空"));
             }
             
-            // 简单的 JSON 解析（手动解析关键字段）
-            final String owner = extractJsonValue(configJson, "owner");
-            final String repoName = extractJsonValue(configJson, "repoName");
-            final String token = extractJsonValue(configJson, "token");
+            // 使用 JsonUtils 反序列化配置对象
+            final GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
+            final String owner = settings.getOwner();
+            final String repoName = settings.getRepoName();
+            final String token = settings.getToken();
             
             // 校验必需字段
             if (owner == null || owner.isBlank()) {
@@ -395,10 +362,11 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                 return Mono.error(new IllegalArgumentException("配置数据为空"));
             }
             
-            // 简单的 JSON 解析（手动解析关键字段）
-            final String owner = extractJsonValue(configJson, "owner");
-            final String repoName = extractJsonValue(configJson, "repoName");
-            final String token = extractJsonValue(configJson, "token");
+            // 使用 JsonUtils 反序列化配置对象
+            final GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
+            final String owner = settings.getOwner();
+            final String repoName = settings.getRepoName();
+            final String token = settings.getToken();
             
             // 校验必需字段
             if (owner == null || owner.isBlank()) {

@@ -49,3 +49,24 @@ halo {
     version = '2.21'
 }
 
+
+haloPlugin {
+  watchDomains {
+    // consoleSource 为自定义的名称，可以随意取
+    consoleSource {
+      // 监听 console/src/ 目录下的文件变化
+      files files('ui/src/')
+      // exclude '**/node_modules/**'
+      // exclude '**/.idea/**'
+      // exclude '**/.git/**'
+      // exclude '**/.gradle/**'
+      // exclude 'src/main/resources/console/**'
+      // exclude 'build/**'
+      // exclude 'gradle/**'
+      // exclude 'dist/**'
+      // exclude 'test/java/**'
+      // exclude 'test/resources/**'
+    }
+    // ... 可以添加多个
+  }
+}

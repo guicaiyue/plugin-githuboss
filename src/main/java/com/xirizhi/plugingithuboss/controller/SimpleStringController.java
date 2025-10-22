@@ -100,31 +100,7 @@ public class SimpleStringController {
                         return Mono.error(new IllegalArgumentException("配置数据为空"));
                     }
                     GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
-                    String owner = settings.getOwner();
-                    String repoName = settings.getRepoName();
-                    String token = settings.getToken();
-                    String branch = settings.getBranch();
-                    String path = settings.getPath();
-                    if (path == null) path = ""; // 允许查询仓库根目录
-
-                    if (owner == null || owner.isBlank()) {
-                        return Mono.error(new IllegalArgumentException("配置缺少 owner"));
-                    }
-                    if (repoName == null || repoName.isBlank()) {
-                        return Mono.error(new IllegalArgumentException("配置缺少 repoName"));
-                    }
-                    if (token == null || token.isBlank()) {
-                        return Mono.error(new IllegalArgumentException("配置缺少 token"));
-                    }
-
-                    RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-                    spec.setOwner(owner);
-                    spec.setRepo(repoName);
-                    spec.setPat(token);
-                    spec.setBranch(branch);
-
-                    final String finalPath = path;
-                    return Mono.fromCallable(() -> gitHubService.listDirectoryContents(spec, finalPath));
+                    return Mono.fromCallable(() -> gitHubService.listDirectoryContents(settings, settings.getPath()));
                 })
                 .doOnError(error -> log.error("查询目录内容失败", error))
                 .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));

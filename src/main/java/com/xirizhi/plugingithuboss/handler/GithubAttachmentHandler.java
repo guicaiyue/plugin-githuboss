@@ -1,7 +1,6 @@
 package com.xirizhi.plugingithuboss.handler;
 
 import com.xirizhi.plugingithuboss.exception.GitHubExceptionHandler;
-import com.xirizhi.plugingithuboss.extension.AttachmentRecord;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
 import com.xirizhi.plugingithuboss.service.GitHubService;
@@ -45,58 +44,6 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     public GithubAttachmentHandler(ReactiveExtensionClient client, GitHubService gitHubService) {
         this.client = client;
         this.gitHubService = gitHubService;
-    }
-    
-    /**
-     * 从 JSON 字符串中提取指定字段的值
-     * 这是一个简单的 JSON 解析方法，用于处理配置数据
-     */
-    private String extractJsonValue(String json, String key) {
-        if (json == null || key == null) {
-            return null;
-        }
-        
-        // 查找 "key": 的位置
-        String searchPattern = "\"" + key + "\":";
-        int startIndex = json.indexOf(searchPattern);
-        if (startIndex == -1) {
-            return null;
-        }
-        
-        // 移动到值的开始位置
-        startIndex += searchPattern.length();
-        
-        // 跳过空格
-        while (startIndex < json.length() && Character.isWhitespace(json.charAt(startIndex))) {
-            startIndex++;
-        }
-        
-        if (startIndex >= json.length()) {
-            return null;
-        }
-        
-        char firstChar = json.charAt(startIndex);
-        
-        // 处理字符串值（被引号包围）
-        if (firstChar == '"') {
-            int endIndex = json.indexOf('"', startIndex + 1);
-            if (endIndex == -1) {
-                return null;
-            }
-            return json.substring(startIndex + 1, endIndex);
-        }
-        
-        // 处理布尔值或数字值
-        int endIndex = startIndex;
-        while (endIndex < json.length()) {
-            char c = json.charAt(endIndex);
-            if (c == ',' || c == '}' || Character.isWhitespace(c)) {
-                break;
-            }
-            endIndex++;
-        }
-        
-        return json.substring(startIndex, endIndex);
     }
 
     /**
@@ -159,9 +106,8 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     } else {
                         filename = ts + (ext != null ? ("." + ext) : "");
                     }
-
-                    final String root = spec.getRootPath() == null ? "attachments" : spec.getRootPath();
-                    final String filePath = root + "/" + dateDir + "/" + filename;
+                    
+                    final String filePath = spec.getRootPath() + "/" + dateDir + "/" + filename;
                     // 组装上传
                     return filePart.content()
                             .reduce(new java.io.ByteArrayOutputStream(), (baos, dataBuffer) -> {
@@ -186,7 +132,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                                     }
                                 }
                                 try {
-                                    String sha = gitHubService.uploadContent(spec, filePath, bytes,
+                                    String sha = gitHubService.uploadContent(settings, filePath, bytes,
                                             "Upload via Halo AttachmentHandler");
                                     String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
                                     log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
@@ -235,25 +181,12 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         var settingJson = context.configMap().getData().getOrDefault("default", "{}");
         GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
         
-        // 简单的 JSON 解析（手动解析关键字段）
-        final String owner = settings.getOwner();
-        final String repoName = settings.getRepoName();
-        final String token = settings.getToken();
-        final String branch = settings.getBranch();
-        
-        // 构建 RepositoryConfig.Spec 对象
-        RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-        spec.setOwner(owner);
-        spec.setRepo(repoName);  // 使用 repoName 作为 repo 值
-        spec.setPat(token);
-        spec.setBranch(branch != null ? branch : "master");
-        
         final String sha = attachment.getMetadata().getAnnotations().get("sha");
         final String path = attachment.getMetadata().getAnnotations().remove("path");
         
         return  Mono.fromCallable(() -> {
-                    log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", owner, repoName, owner + "/" + repoName, path);
-                    gitHubService.deleteContent(spec, path, sha, "Delete via Halo AttachmentHandler");
+                    log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", settings.getOwner(), settings.getRepoName(), settings.getOwner() + "/" + settings.getRepoName(), path);
+                    gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler");
                     log.info("远程文件删除成功");
                     return attachment;
                 })

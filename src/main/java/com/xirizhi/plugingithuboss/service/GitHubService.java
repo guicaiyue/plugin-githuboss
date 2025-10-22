@@ -26,19 +26,19 @@ public class GitHubService {
      * @param message 提交信息（commit message）
      * @return 上传后返回的内容 SHA
      */
-    public String uploadContent(RepositoryConfig.Spec spec, String path, byte[] data, String message) throws Exception {
+    public String uploadContent(GithubOssPolicySettings settings, String path, byte[] data, String message) throws Exception {
         // 构造 GitHub Contents API URL
-        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", spec.getOwner(), spec.getRepo(), path);
+        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
         // 组装请求体（JSON），包含提交信息、分支（可选）与 Base64 编码内容
         String body = "{" +
                 "\"message\":\"" + escapeJson(message) + "\"," +
-                (spec.getBranch() != null ? "\"branch\":\"" + escapeJson(spec.getBranch()) + "\"," : "") +
+                (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
                 "\"content\":\"" + Base64.getEncoder().encodeToString(data) + "\"" +
                 "}";
         // 构造 HTTP 请求（PUT 表示创建/更新内容）
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + spec.getPat())
+                .header("Authorization", "Bearer " + settings.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .header("Content-Type", "application/json")
                 .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -61,16 +61,16 @@ public class GitHubService {
      * @param sha 现有文件的内容 SHA（来自上传或查询）
      * @param message 提交信息
      */
-    public void deleteContent(RepositoryConfig.Spec spec, String path, String sha, String message) throws Exception {
-        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", spec.getOwner(), spec.getRepo(), path);
+    public void deleteContent(GithubOssPolicySettings settings, String path, String sha, String message) throws Exception {
+        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
         String body = "{" +
                 "\"message\":\"" + escapeJson(message) + "\"," +
-                (spec.getBranch() != null ? "\"branch\":\"" + escapeJson(spec.getBranch()) + "\"," : "") +
+                (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
                 "\"sha\":\"" + escapeJson(sha) + "\"" +
                 "}";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + spec.getPat())
+                .header("Authorization", "Bearer " + settings.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .header("Content-Type", "application/json")
                 .method("DELETE", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -119,13 +119,13 @@ public class GitHubService {
      * 根据仓库路径获取文件的 SHA，用于删除操作。
      * 注意：GitHub Contents API 会返回 JSON，其中包含 sha 字段。
      */
-    public String fetchContentSha(RepositoryConfig.Spec spec, String path) throws Exception {
+    public String fetchContentSha(GithubOssPolicySettings settings, String path) throws Exception {
         // 构造请求 URL，例如：https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}
         String url = String.format("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-                spec.getOwner(), spec.getRepo(), path, spec.getBranch() == null ? "main" : spec.getBranch());
+                settings.getOwner(), settings.getRepoName(), path, settings.getBranch() == null ? "main" : settings.getBranch());
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + spec.getPat())
+                .header("Authorization", "Bearer " + settings.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .GET()
                 .build();
@@ -152,14 +152,14 @@ public class GitHubService {
      * 根据仓库与路径查询目录内容，返回 GitHub API 的原始 JSON 字符串。
      * 若 path 为空则查询仓库根目录。
      */
-    public String listDirectoryContents(RepositoryConfig.Spec spec, String path) throws Exception {
+    public String listDirectoryContents(GithubOssPolicySettings settings, String path) throws Exception {
         String p = (path == null || path.isBlank()) ? "" : path;
-        String branch = spec.getBranch() == null ? "main" : spec.getBranch();
+        String branch = settings.getBranch() == null ? "main" : settings.getBranch();
         String url = String.format("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-                spec.getOwner(), spec.getRepo(), p, branch);
+                settings.getOwner(), settings.getRepoName(), p, branch);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + spec.getPat())
+                .header("Authorization", "Bearer " + settings.getToken())
                 .header("Accept", "application/vnd.github+json")
                 .GET()
                 .build();

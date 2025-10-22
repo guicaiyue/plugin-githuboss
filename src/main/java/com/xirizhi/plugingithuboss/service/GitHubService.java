@@ -1,5 +1,6 @@
 package com.xirizhi.plugingithuboss.service;
 
+import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
 import org.springframework.stereotype.Service;
 
@@ -89,11 +90,10 @@ public class GitHubService {
      * @param path 相对路径
      * @return 可直接访问的 CDN URL
      */
-    public String buildCdnUrl(RepositoryConfig.Spec spec, String path) {
-        java.util.List<String> domains = spec.getCdnDomains();
-        String branch = spec.getBranch() == null ? "main" : spec.getBranch();
-        String base = domains != null && !domains.isEmpty() ? domains.get(0) : "https://cdn.jsdelivr.net";
-        return String.format("%s/gh/%s/%s@%s/%s", base, spec.getOwner(), spec.getRepo(), branch, path);
+    public String buildCdnUrl(GithubOssPolicySettings settings, String path) {
+        String branch = settings.getBranch() == null ? "main" : settings.getBranch();
+        String base = "https://cdn.jsdelivr.net";
+        return String.format("%s/gh/%s/%s@%s/%s", base, settings.getOwner(), settings.getRepoName(), branch, path);
     }
 
     /**
@@ -169,5 +169,22 @@ public class GitHubService {
             return response.body();
         }
         throw new IllegalStateException("目录内容查询失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
+    }
+
+    public boolean checkConnectivity() {
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(5))
+                    .build();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://github.com"))
+                    .timeout(java.time.Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+            HttpResponse<Void> resp = client.send(request, HttpResponse.BodyHandlers.discarding());
+            return resp.statusCode() >= 200 && resp.statusCode() < 400;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

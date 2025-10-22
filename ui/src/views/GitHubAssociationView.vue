@@ -292,6 +292,13 @@ import {
   IconRefreshLine
 } from '@halo-dev/components'
 import { coreApiClient,axiosInstance  } from '@halo-dev/api-client'
+import { SimpleStringControllerApi } from '@/api'
+
+var simpleStringControllerApi = new SimpleStringControllerApi(
+  undefined,
+  axiosInstance.defaults.baseURL,
+  axiosInstance
+);
 
 // 路由
 const router = useRouter()
@@ -458,7 +465,9 @@ const fetchS3Objects = async () => {
 
   isFetching.value = true
   try {
-    axiosInstance.get(`/apis/githubOs.halo.run/v1alpha1/github/oss/list?policyName=${policyName.value}`).then(response => {
+    simpleStringControllerApi.listGitHubDirectoryContents({
+      policyName: policyName.value
+    }).then(response => {
       // handle response
       console.log(response.data)
     })

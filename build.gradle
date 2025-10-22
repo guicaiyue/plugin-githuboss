@@ -56,17 +56,37 @@ haloPlugin {
     consoleSource {
       // 监听 console/src/ 目录下的文件变化
       files files('ui/src/')
-      // exclude '**/node_modules/**'
-      // exclude '**/.idea/**'
-      // exclude '**/.git/**'
-      // exclude '**/.gradle/**'
-      // exclude 'src/main/resources/console/**'
-      // exclude 'build/**'
-      // exclude 'gradle/**'
-      // exclude 'dist/**'
-      // exclude 'test/java/**'
-      // exclude 'test/resources/**'
     }
-    // ... 可以添加多个
+  }
+  openApi {
+    // outputDir = file("$rootDir/api-docs/openapi/v3_0") // 指定 OpenAPI 文档的输出目录默认输出到 build 目录下，不建议修改，除非需要提交到代码仓库
+    groupingRules {
+      // 定义 API 分组规则，用于为插件项目中的 APIs 分组然后只对此分组生成 API 客户端代码
+      // 定义了一个名为 extensionApis 的分组，task 会通过 /v3/api-docs/extensionApis 访问到 api docs 然后生成 API 客户端代码
+      // extensionApis 名称可以替换为其他名称，但需要与 groupedApiMappings 中的名称一致
+      extensionApis {
+        // 分组显示名称，避免与其他分组重名建议替换 {your-plugin-name} 为插件名称
+        displayName = 'Extension API for plugin-githuboss'
+        // 分组的 API 规则用于匹配插件项目中的 API 将其划分到此分组，它是一个 Ant 风格的路径匹配规则可以写多个
+        pathsToMatch = ['/apis/githubOs.halo.run/v1alpha1/**']
+      }
+    }
+    groupedApiMappings = [
+      // 这里为固定写法，照搬即可，除非是 groupingRules 中 extensionApis 的名字修改了
+      '/v3/api-docs/extensionApis': 'extensionApis.json'
+    ]
+    generator {
+       // 指定 API 客户端代码的输出目录如 console 或 ui
+      outputDir = file("${projectDir}/ui/src/api")
+
+      // 定制生成，以下是默认配置可以不需要添加到 build.gradle 中
+      additionalProperties = [
+        useES6: true,
+        useSingleRequestParameter: true,
+        withSeparateModelsAndApi: true,
+        apiPackage: "api",
+        modelPackage: "models"
+      ]
+    }
   }
 }

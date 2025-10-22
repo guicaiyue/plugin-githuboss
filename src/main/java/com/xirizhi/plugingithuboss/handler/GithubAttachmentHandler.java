@@ -15,6 +15,7 @@ import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.Policy;
 import run.halo.app.core.extension.attachment.endpoint.AttachmentHandler;
 import run.halo.app.extension.ConfigMap;
+import run.halo.app.extension.Metadata;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.infra.utils.JsonUtils;
 
@@ -23,6 +24,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.UUID;
 
 /**
  * GitHub OSS 附件处理器：将上传/删除能力挂接到 Halo 的附件扩展点。
@@ -44,7 +47,57 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         this.gitHubService = gitHubService;
     }
     
-    // 已移除旧的手工 JSON 解析方法，改用 JsonUtils + GithubOssPolicySettings 类型化解析。
+    /**
+     * 从 JSON 字符串中提取指定字段的值
+     * 这是一个简单的 JSON 解析方法，用于处理配置数据
+     */
+    private String extractJsonValue(String json, String key) {
+        if (json == null || key == null) {
+            return null;
+        }
+        
+        // 查找 "key": 的位置
+        String searchPattern = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchPattern);
+        if (startIndex == -1) {
+            return null;
+        }
+        
+        // 移动到值的开始位置
+        startIndex += searchPattern.length();
+        
+        // 跳过空格
+        while (startIndex < json.length() && Character.isWhitespace(json.charAt(startIndex))) {
+            startIndex++;
+        }
+        
+        if (startIndex >= json.length()) {
+            return null;
+        }
+        
+        char firstChar = json.charAt(startIndex);
+        
+        // 处理字符串值（被引号包围）
+        if (firstChar == '"') {
+            int endIndex = json.indexOf('"', startIndex + 1);
+            if (endIndex == -1) {
+                return null;
+            }
+            return json.substring(startIndex + 1, endIndex);
+        }
+        
+        // 处理布尔值或数字值
+        int endIndex = startIndex;
+        while (endIndex < json.length()) {
+            char c = json.charAt(endIndex);
+            if (c == ',' || c == '}' || Character.isWhitespace(c)) {
+                break;
+            }
+            endIndex++;
+        }
+        
+        return json.substring(startIndex, endIndex);
+    }
 
     /**
      * 上传文件：
@@ -56,29 +109,12 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     public Mono<Attachment> upload(UploadContext context) {
         final FilePart filePart = context.file();
         final Policy policy = context.policy();
-        final ConfigMap cfg = context.configMap();
-        
-        // 从 ConfigMap 中读取配置字段
-        if (cfg == null || cfg.getData() == null) {
-            return Mono.error(new IllegalArgumentException("配置为空"));
-        }
-        
-        
         
         // 解析嵌套的配置数据
-        String configJson = cfg.getData().get("default");
-        if (configJson == null || configJson.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置数据为空"));
-        }
+        var settingJson = context.configMap().getData().getOrDefault("default", "{}");
+        GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
         
-        // 使用 JsonUtils 反序列化配置对象，替代手工解析
-        final GithubOssPolicySettings settings;
-        try {
-            settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
-        } catch (Exception e) {
-            return Mono.error(new IllegalArgumentException("配置解析失败: " + e.getMessage(), e));
-        }
-        
+        // 简单的 JSON 解析（手动解析关键字段）
         final String owner = settings.getOwner();
         final String repoName = settings.getRepoName();
         final String branch = settings.getBranch();
@@ -86,122 +122,104 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         final String token = settings.getToken();
         final Boolean namePrefix = settings.getNamePrefix();
         
-        // 校验必需字段
-        if (owner == null || owner.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 owner"));
-        }
-        if (repoName == null || repoName.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 repoName"));
-        }
-        if (token == null || token.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 token"));
-        }
-        
         // GitHub 连通性检测
-        return checkGitHubConnectivity()
-            .flatMap(isConnected -> {
-                if (!isConnected) {
-                    return Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"));
-                }
-                
-                // 构建 RepositoryConfig.Spec 对象
-                RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-                spec.setOwner(owner);
-                spec.setRepo(repoName);  // 使用 repoName 作为 repo 值
-                spec.setBranch(branch != null ? branch : "master");
-                spec.setPat(token);
-                spec.setRootPath(path != null && !path.isBlank() ? path : "attachments");
-        
-        // 构造存储路径：rootPath/YYYYMMDD/timestamp.ext
-        final String dateDir = DateTimeFormatter.ofPattern("yyyyMMdd").format(Instant.now().atZone(ZoneId.systemDefault()));
-        final String ts = String.valueOf(System.currentTimeMillis());
-        
-        // 提取文件扩展名
-        final String originalFilename = filePart.filename();
-        final String ext = extractExt(originalFilename);
-        
-        // 根据 namePrefix 配置决定文件名格式
-        final String filename;
-        if (Boolean.TRUE.equals(namePrefix) && originalFilename != null && !originalFilename.isBlank()) {
-            // 保留原文件名作为后缀，最长15个字符
-            String originalName = originalFilename;
-            if (originalName.length() > 15) {
-                originalName = originalName.substring(0, 15);
-            }
-            filename = ts + "-" + originalName;
-        } else {
-            filename = ts + (ext != null ? ("." + ext) : "");
-        }
-        
-        final String root = spec.getRootPath() == null ? "attachments" : spec.getRootPath();
-        final String filePath = root + "/" + dateDir + "/" + filename;
-        // 组装上传
-        return filePart.content()
-                .reduce(new java.io.ByteArrayOutputStream(), (baos, dataBuffer) -> {
-                    try {
-                        java.nio.ByteBuffer nio = dataBuffer.asByteBuffer();
-                        byte[] bytes = new byte[nio.remaining()];
-                        nio.get(bytes);
-                        baos.write(bytes);
-                        return baos;
-                    } catch (Exception e) { throw new RuntimeException(e); }
-                })
-                .flatMap(baos -> {
-                    byte[] bytes = baos.toByteArray();
-                    // 大小校验
-                    if (spec.getMaxSizeMB() != null && spec.getMaxSizeMB() > 0) {
-                        long maxBytes = spec.getMaxSizeMB() * 1024L * 1024L;
-                        if (bytes.length > maxBytes) {
-                            return Mono.error(new IllegalArgumentException("文件超过大小限制: " + spec.getMaxSizeMB() + "MB"));
+        return Mono.fromCallable(() -> gitHubService.checkConnectivity())
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .flatMap(isConnected -> {
+                    if (!isConnected) {
+                        return Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"));
+                    }
+
+                    // 构建 RepositoryConfig.Spec 对象
+                    RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
+                    spec.setOwner(owner);
+                    spec.setRepo(repoName); // 使用 repoName 作为 repo 值
+                    spec.setBranch(branch != null ? branch : "master");
+                    spec.setPat(token);
+                    spec.setRootPath(path != null && !path.isBlank() ? path : "attachments");
+
+                    // 构造存储路径：rootPath/YYYYMMDD/timestamp.ext
+                    final String dateDir = DateTimeFormatter.ofPattern("yyyyMMdd")
+                            .format(Instant.now().atZone(ZoneId.systemDefault()));
+                    final String ts = String.valueOf(System.currentTimeMillis());
+
+                    // 提取文件扩展名
+                    final String originalFilename = filePart.filename();
+                    final String ext = extractExt(originalFilename);
+
+                    // 根据 namePrefix 配置决定文件名格式
+                    final String filename;
+                    if (namePrefix && originalFilename != null && !originalFilename.isBlank()) {
+                        // 保留原文件名作为后缀，最长15个字符
+                        String originalName = originalFilename;
+                        if (originalName.length() > 15) {
+                            originalName = originalName.substring(0, 15);
                         }
+                        filename = ts + "-" + originalName;
+                    } else {
+                        filename = ts + (ext != null ? ("." + ext) : "");
                     }
-                    try {
-                        String sha = gitHubService.uploadContent(spec, filePath, bytes, "Upload via Halo AttachmentHandler");
-                        String cdnUrl = gitHubService.buildCdnUrl(spec, filePath);
-                        // 记录附件到扩展模型，便于后续删除与审计（与现有策略一致）
-                        AttachmentRecord record = new AttachmentRecord();
-                        // 初始化 metadata（AbstractExtension 需要手动初始化）
-                        record.setMetadata(new run.halo.app.extension.Metadata());
-                        record.getMetadata().setName(owner + "-" + repoName + "-" + ts);
-                        
-                        // 初始化 spec（必需字段）
-                        AttachmentRecord.Spec rs = new AttachmentRecord.Spec();
-                        rs.setRepoRef(owner + "/" + repoName);
-                        rs.setPath(filePath);
-                        rs.setSha(sha);
-                        rs.setSize(bytes.length);
-                        rs.setCdnUrl(cdnUrl);
-                        rs.setDeleted(false);
-                        rs.setCreatedAt(Instant.now().toString());
-                        record.setSpec(rs);
-                        
-                        // 使用响应式方式创建记录，避免阻塞调用
-                        return client.create(record)
-                            .flatMap(createdRecord -> {
-                                // 构造 Halo Attachment 返回
-                                Attachment attachment = new Attachment();
-                                // 初始化 metadata（AbstractExtension 需要手动初始化）
-                                attachment.setMetadata(new run.halo.app.extension.Metadata());
-                                attachment.getMetadata().setName(createdRecord.getMetadata().getName());
-                                Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
-                                as.setDisplayName(originalFilename);
-                                as.setGroupName("githuboss");
-                                as.setPolicyName(policy.getMetadata().getName());
-                                as.setOwnerName("system"); // 可根据登录用户设置
-                                as.setMediaType(getMediaTypeByExt(ext));
-                                as.setSize((long) bytes.length);
-                                attachment.setSpec(as);
-                                Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
-                                status.setPermalink(cdnUrl);
-                                attachment.setStatus(status);
-                                return Mono.just(attachment);
+
+                    final String root = spec.getRootPath() == null ? "attachments" : spec.getRootPath();
+                    final String filePath = root + "/" + dateDir + "/" + filename;
+                    // 组装上传
+                    return filePart.content()
+                            .reduce(new java.io.ByteArrayOutputStream(), (baos, dataBuffer) -> {
+                                try {
+                                    java.nio.ByteBuffer nio = dataBuffer.asByteBuffer();
+                                    byte[] bytes = new byte[nio.remaining()];
+                                    nio.get(bytes);
+                                    baos.write(bytes);
+                                    return baos;
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            })
+                            .flatMap(baos -> {
+                                byte[] bytes = baos.toByteArray();
+                                // 大小校验
+                                if (spec.getMaxSizeMB() != null && spec.getMaxSizeMB() > 0) {
+                                    long maxBytes = spec.getMaxSizeMB() * 1024L * 1024L;
+                                    if (bytes.length > maxBytes) {
+                                        return Mono.error(new IllegalArgumentException(
+                                                "文件超过大小限制: " + spec.getMaxSizeMB() + "MB"));
+                                    }
+                                }
+                                try {
+                                    String sha = gitHubService.uploadContent(spec, filePath, bytes,
+                                            "Upload via Halo AttachmentHandler");
+                                    String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
+                                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
+                                    // 记录附件到扩展模型，便于后续删除与审计（与现有策略一致）
+                                    // 构造 Halo Attachment 返回
+                                    Attachment attachment = new Attachment();
+                                    // 初始化 metadata（AbstractExtension 需要手动初始化）
+                                    var metadata = new Metadata();
+                                    metadata.setName(UUID.randomUUID().toString());
+                                    attachment.setMetadata(metadata);
+                                    HashMap<String, String> annotationMap = new HashMap<>();
+                                    annotationMap.put("path", filePath);
+                                    annotationMap.put("sha", sha);
+                                    attachment.getMetadata().setAnnotations(annotationMap);
+                                    
+                                    Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
+                                    as.setDisplayName(originalFilename);
+                                    as.setGroupName("githuboss");
+                                    as.setPolicyName(policy.getMetadata().getName());
+                                    as.setOwnerName("system"); // 可根据登录用户设置
+                                    as.setMediaType(getMediaTypeByExt(ext));
+                                    as.setSize((long) bytes.length);
+                                    attachment.setSpec(as);
+                                    Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
+                                    status.setPermalink(cdnUrl);
+                                    attachment.setStatus(status);
+                                    return Mono.just(attachment);
+                                } catch (Exception e) {
+                                    return Mono.error(e);
+                                }
                             });
-                    } catch (Exception e) {
-                        return Mono.error(e);
-                    }
-                });
-            })
-            .onErrorMap(GitHubExceptionHandler::map);
+                })
+                .onErrorMap(GitHubExceptionHandler::map);
     }
 
     /**
@@ -212,43 +230,16 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     @Override
     public Mono<Attachment> delete(DeleteContext context) {
         final Attachment attachment = context.attachment();
-        final Policy policy = context.policy();
-        final ConfigMap cfg = context.configMap();
         
-        // 从 ConfigMap 中读取配置字段
-        if (cfg == null || cfg.getData() == null) {
-            return Mono.error(new IllegalArgumentException("配置为空"));
-        }
+        // 解析嵌套的配置数据
+        var settingJson = context.configMap().getData().getOrDefault("default", "{}");
+        GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
         
-        // 解析嵌套的配置数据（与 upload 方法保持一致）
-        String configJson = cfg.getData().get("default");
-        if (configJson == null || configJson.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置数据为空"));
-        }
-        
-        // 使用 JsonUtils 反序列化配置对象，替代手工解析
-        final GithubOssPolicySettings settings;
-        try {
-            settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
-        } catch (Exception e) {
-            return Mono.error(new IllegalArgumentException("配置解析失败: " + e.getMessage(), e));
-        }
-        
+        // 简单的 JSON 解析（手动解析关键字段）
         final String owner = settings.getOwner();
         final String repoName = settings.getRepoName();
         final String token = settings.getToken();
         final String branch = settings.getBranch();
-        
-        // 校验必需字段
-        if (owner == null || owner.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 owner"));
-        }
-        if (repoName == null || repoName.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 repoName"));
-        }
-        if (token == null || token.isBlank()) {
-            return Mono.error(new IllegalArgumentException("配置缺少 token"));
-        }
         
         // 构建 RepositoryConfig.Spec 对象
         RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
@@ -257,42 +248,14 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         spec.setPat(token);
         spec.setBranch(branch != null ? branch : "master");
         
-        // 直接执行远程删除：尝试从记录表查找 sha，否则走 API 查询获取 sha
-        String fullPath = derivePathFromAttachment(attachment);
-        // 规范化为仓库相对路径：处理 jsdelivr 风格的 gh/{owner}/{repo}@{branch}/{path}
-        String repoPath = fullPath;
-        int atIdx = repoPath.indexOf('@');
-        if (repoPath.startsWith("gh/") && atIdx != -1) {
-            int slashAfterAt = repoPath.indexOf('/', atIdx);
-            if (slashAfterAt != -1 && slashAfterAt + 1 < repoPath.length()) {
-                repoPath = repoPath.substring(slashAfterAt + 1);
-            }
-        }
-        log.info("开始删除远程文件，完整路径: {}", fullPath);
-        log.info("仓库相对路径: {}", repoPath);
-        final String finalRepoPath = repoPath; // 供 lambda 引用的实际最终变量
-        log.info("查找参数 - owner: {}, repoName: {}, 完整仓库名: {}", owner, repoName, owner + "/" + repoName);
-        return findShaByRecord(owner + "/" + repoName, finalRepoPath)
-                .doOnNext(sha -> log.info("findShaByRecord 返回结果: '{}'", sha))
-                .flatMap(sha -> {
-                    log.info("进入第一个 flatMap，从记录中查找到的 SHA: '{}'", sha);
-                    // 如果从记录中找不到 sha，则通过 API 查询
-                    if (sha == null || sha.isBlank()) {
-                        log.info("记录中未找到 SHA，通过 API 查询");
-                        return Mono.fromCallable(() -> gitHubService.fetchContentSha(spec, finalRepoPath));
-                    } else {
-                        log.info("使用记录中的 SHA: {}", sha);
-                        return Mono.just(sha);
-                    }
-                })
-                .doOnNext(finalSha -> log.info("最终获得的 SHA: '{}'", finalSha))
-                .flatMap(sha -> {
-                    log.info("进入第二个 flatMap，准备删除远程文件，SHA: '{}'", sha);
-                    return Mono.fromCallable(() -> {
-                        gitHubService.deleteContent(spec, finalRepoPath, sha, "Delete via Halo AttachmentHandler");
-                        log.info("远程文件删除成功");
-                        return attachment;
-                    });
+        final String sha = attachment.getMetadata().getAnnotations().get("sha");
+        final String path = attachment.getMetadata().getAnnotations().remove("path");
+        
+        return  Mono.fromCallable(() -> {
+                    log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", owner, repoName, owner + "/" + repoName, path);
+                    gitHubService.deleteContent(spec, path, sha, "Delete via Halo AttachmentHandler");
+                    log.info("远程文件删除成功");
+                    return attachment;
                 })
                 .doOnError(error -> log.error("删除过程中发生错误", error))
                 .onErrorMap(GitHubExceptionHandler::map);
@@ -302,43 +265,12 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     public Mono<URI> getSharedURL(Attachment attachment, Policy policy, ConfigMap configMap, Duration ttl) {
         // 对于 GitHub 内容，CDN 地址即可视为共享 URL，这里直接返回 permalink 或基于路径构建 CDN URL
         try {
-            String path = derivePathFromAttachment(attachment);
-            
-            // 从 ConfigMap 中读取配置字段
-            if (configMap == null || configMap.getData() == null) {
-                return Mono.error(new IllegalArgumentException("配置为空"));
-            }
-            
-            // 解析嵌套的配置数据（与 upload 方法保持一致）
-            String configJson = configMap.getData().get("default");
-            if (configJson == null || configJson.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置数据为空"));
-            }
-            
-            // 使用 JsonUtils 反序列化配置对象
-            final GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
-            final String owner = settings.getOwner();
-            final String repoName = settings.getRepoName();
-            final String token = settings.getToken();
-            
-            // 校验必需字段
-            if (owner == null || owner.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 owner"));
-            }
-            if (repoName == null || repoName.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 repoName"));
-            }
-            if (token == null || token.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 token"));
-            }
-            
-            // 构建 RepositoryConfig.Spec 对象
-            RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-            spec.setOwner(owner);
-            spec.setRepo(repoName);  // 使用 repoName 作为 repo 值
-            spec.setPat(token);
-            
-            String cdn = gitHubService.buildCdnUrl(spec, path);
+            String path = attachment.getMetadata().getAnnotations().get("path");
+
+            var settingJson = configMap.getData().getOrDefault("default", "{}");
+            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
+           
+            String cdn = gitHubService.buildCdnUrl(settings, path);
             return Mono.just(URI.create(cdn));
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
@@ -349,133 +281,19 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     public Mono<URI> getPermalink(Attachment attachment, Policy policy, ConfigMap configMap) {
         // GitHub 场景：permalink 使用 CDN 地址
         try {
-            String path = derivePathFromAttachment(attachment);
+            String path = attachment.getMetadata().getAnnotations().get("path");
             
-            // 从 ConfigMap 中读取配置字段
-            if (configMap == null || configMap.getData() == null) {
-                return Mono.error(new IllegalArgumentException("配置为空"));
-            }
-            
-            // 解析嵌套的配置数据（与 upload 方法保持一致）
-            String configJson = configMap.getData().get("default");
-            if (configJson == null || configJson.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置数据为空"));
-            }
-            
-            // 使用 JsonUtils 反序列化配置对象
-            final GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
-            final String owner = settings.getOwner();
-            final String repoName = settings.getRepoName();
-            final String token = settings.getToken();
-            
-            // 校验必需字段
-            if (owner == null || owner.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 owner"));
-            }
-            if (repoName == null || repoName.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 repoName"));
-            }
-            if (token == null || token.isBlank()) {
-                return Mono.error(new IllegalArgumentException("配置缺少 token"));
-            }
-            
-            // 构建 RepositoryConfig.Spec 对象
-            RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-            spec.setOwner(owner);
-            spec.setRepo(repoName);  // 使用 repoName 作为 repo 值
-            spec.setPat(token);
-            
-            String cdn = gitHubService.buildCdnUrl(spec, path);
+            var settingJson = configMap.getData().getOrDefault("default", "{}");
+            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
+                
+            String cdn = gitHubService.buildCdnUrl(settings, path);
             return Mono.just(URI.create(cdn));
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
         }
     }
 
-    // 从附件对象推断仓库内路径：
-    // 简化策略：优先从 status.permalink 去掉域名与前缀，回退到扩展记录表；如仍失败则抛异常。
-    private String derivePathFromAttachment(Attachment attachment) {
-        // 这里假设 permalink 为 CDN URL，例如 https://cdn.example.com/attachments/20241012/1697100000000.png
-        String permalink = attachment.getStatus() != null ? attachment.getStatus().getPermalink() : null;
-        if (permalink == null || permalink.isBlank()) {
-            throw new IllegalArgumentException("附件缺少 permalink，无法推断路径");
-        }
-        // 简化解析：找到 "attachments/" 之后的部分作为路径（rootPath 默认 attachments）
-        int idx = permalink.indexOf("/attachments/");
-        if (idx > 0) {
-            return permalink.substring(idx + 1); // 去掉前导斜杠，得到 attachments/...
-        }
-        // 如果自定义 rootPath，则更复杂，这里回退为直接取 URL 路径部分
-        try {
-            java.net.URI uri = java.net.URI.create(permalink);
-            String p = uri.getPath();
-            if (p.startsWith("/")) p = p.substring(1);
-            return p;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("无法解析附件 permalink: " + permalink);
-        }
-    }
-
-    private Mono<String> findShaByRecord(String repoName, String path) {
-        log.info("开始从记录中查找 SHA，仓库: {}, 路径: {}", repoName, path);
-        // 改为异步实现，避免阻塞调用
-        return client.list(AttachmentRecord.class, e -> true, null, 0, 1000)
-                .doOnNext(result -> log.info("查询到 {} 条附件记录", result.getItems().size()))
-                .flatMapMany(result -> reactor.core.publisher.Flux.fromIterable(result.getItems()))
-                .doOnNext(rec -> {
-                    if (rec.getSpec() != null) {
-                        log.info("检查记录: repoRef={}, path={}", rec.getSpec().getRepoRef(), rec.getSpec().getPath());
-                    }
-                })
-                .filter(rec -> rec.getSpec() != null && repoName.equals(rec.getSpec().getRepoRef())
-                        && path.equals(rec.getSpec().getPath()))
-                .doOnNext(rec -> log.info("找到匹配记录，SHA: {}", rec.getSpec().getSha()))
-                .map(rec -> rec.getSpec().getSha())
-                .next()
-                .doOnSuccess(sha -> {
-                    if (sha != null && !sha.isEmpty()) {
-                        log.info("从记录中成功找到 SHA: {}", sha);
-                    } else {
-                        log.info("记录中未找到匹配的 SHA");
-                    }
-                })
-                .onErrorReturn(""); // 出错时返回空字符串，而不是 null
-    }
-
-    /**
-     * 检测 GitHub 连通性
-     * @return Mono<Boolean> 连通性检测结果
-     */
-    private Mono<Boolean> checkGitHubConnectivity() {
-        return Mono.fromCallable(() -> {
-            try {
-                // 使用 Java 11+ 的 HttpClient 进行连通性检测
-                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
-                
-                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create("https://github.com"))
-                    .timeout(java.time.Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-                
-                java.net.http.HttpResponse<String> response = client.send(request, 
-                    java.net.http.HttpResponse.BodyHandlers.ofString());
-                
-                // 检查响应状态码，200-399 都认为是成功
-                return response.statusCode() >= 200 && response.statusCode() < 400;
-                
-            } catch (Exception e) {
-                // 任何异常都认为连接失败
-                System.err.println("GitHub 连通性检测失败: " + e.getMessage());
-                return false;
-            }
-        })
-        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()) // 在弹性线程池中执行阻塞操作
-        .onErrorReturn(false); // 发生错误时返回 false
-    }
-
+    // GitHub 连通性检测已迁移至 GitHubService.checkConnectivity()
     private String extractExt(String filename) {
         if (filename == null) return null;
         int i = filename.lastIndexOf('.');
@@ -566,7 +384,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                 return "video/x-msvideo";
             case "mov":
                 return "video/quicktime";
-            
+             
             default:
                 return "application/octet-stream";
         }

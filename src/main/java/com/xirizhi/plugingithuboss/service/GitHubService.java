@@ -1,7 +1,6 @@
 package com.xirizhi.plugingithuboss.service;
 
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
-import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;

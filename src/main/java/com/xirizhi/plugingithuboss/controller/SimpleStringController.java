@@ -4,13 +4,11 @@ package com.xirizhi.plugingithuboss.controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
 import com.xirizhi.plugingithuboss.service.GitHubService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import run.halo.app.core.extension.Setting;
 import run.halo.app.core.extension.attachment.Policy;
 import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.ReactiveExtensionClient;

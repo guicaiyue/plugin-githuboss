@@ -26,20 +26,25 @@ spec:
           validation: required
         - $formkit: radio
           name: namePrefix
-          label: 原文件名当后缀
-          value: false
-          placeholder: 默认文件重命名[yyyyMMddHHmmssSSS]日期格式，开启后重命名[yyyyMMddHHmmssSSS-原文件名],原文件名最长保留15个字符
+          label: 文件名处理
+          value: ""
+          placeholder: 默认文件重命名yyyyMMddHHmmss原文件名,若选中[月度文件夹],则文件名yyyyMM/ddHHmmss原文件名,若选中[日度文件夹],则文件名yyyyMMdd/ddHHmmss
           options:
-            - label: 是
-              value: true
-            - label: 否
-              value: false
+            - label: 关闭上层文件夹
+              value: ""
+            - label: 年度文件夹
+              value: "yyyy"
+            - label: 月度文件夹
+              value: "yyyyMM"
+            - label: 日度文件夹
+              value: "yyyyMMdd"
         - $formkit: password
           name: token
           label: 凭据
           validation: required
-        - $formkit: text
-          name: creatName
-          label: 当前账号
-          placeholder: 请填写当前账号,因为现在拿不到
+        - $formkit: number
+          name: minSizeMB
+          label: 上传文件最低大小 (MB)
+          placeholder: 默认 50 MB
+          value: 50
           validation: required

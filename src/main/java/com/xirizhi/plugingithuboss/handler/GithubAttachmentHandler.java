@@ -2,7 +2,6 @@ package com.xirizhi.plugingithuboss.handler;
 
 import com.xirizhi.plugingithuboss.exception.GitHubExceptionHandler;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
-import com.xirizhi.plugingithuboss.extension.RepositoryConfig;
 import com.xirizhi.plugingithuboss.service.GitHubService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +23,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -46,6 +46,9 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         this.gitHubService = gitHubService;
     }
 
+    // 新增：进程内文件路径占位集合（不自动淘汰，上传结束后释放）
+    private static final java.util.Set<String> RESERVED_PATHS = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
     /**
      * 上传文件：
      * - 从 Policy 与 ConfigMap 中读取仓库别名（repoName）等配置
@@ -64,108 +67,123 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         // 简单的 JSON 解析（手动解析关键字段）
         final String owner = settings.getOwner();
         final String repoName = settings.getRepoName();
-        final String branch = settings.getBranch();
-        final String path = settings.getPath();
-        final String token = settings.getToken();
-        final Boolean namePrefix = settings.getNamePrefix();
+
+        // 新增：在上传最前阶段生成并占位唯一文件名/路径（秒级加一，不等待真实时间流逝）
+        var pathBuild = buildPathAndName(settings, filePart);
         
-        // GitHub 连通性检测
-        return Mono.fromCallable(() -> gitHubService.checkConnectivity())
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
-                .flatMap(isConnected -> {
-                    if (!isConnected) {
-                        return Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"));
+        // 文件大小检测优先于 GitHub 连通性
+        return readFileBytes(filePart)
+                .flatMap(bytes -> validateMinSize(bytes, settings.getMinSizeMB()))
+                .flatMap(bytes -> Mono.fromSupplier(gitHubService::checkConnectivity)
+                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                        .flatMap(isConnected -> isConnected
+                                ? Mono.just(bytes)
+                                : Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"))))
+                .flatMap(bytes -> Mono.fromCallable(() -> {
+                    String filePath = pathBuild.filePath();
+                    String sha = gitHubService.uploadContent(settings, filePath, bytes,
+                            "Upload via Halo AttachmentHandler");
+                    String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
+                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
+                    Attachment attachment = new Attachment();
+                    var metadata = new Metadata();
+                    metadata.setName(UUID.randomUUID().toString());
+                    attachment.setMetadata(metadata);
+                    HashMap<String, String> annotationMap = new HashMap<>();
+                    annotationMap.put("path", filePath);
+                    annotationMap.put("sha", sha);
+                    attachment.getMetadata().setAnnotations(annotationMap);
+
+                    Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
+                    as.setDisplayName(pathBuild.filename());
+                    as.setGroupName("githuboss");
+                    as.setPolicyName(policy.getMetadata().getName());
+                    as.setOwnerName("system");
+                    as.setMediaType(getMediaTypeByExt(pathBuild.ext()));
+                    as.setSize((long) bytes.length);
+                    attachment.setSpec(as);
+                    Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
+                    status.setPermalink(cdnUrl);
+                    attachment.setStatus(status);
+                    return attachment;
+                }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()))
+                .doFinally(signalType -> {
+                    synchronized (RESERVED_PATHS) {
+                        RESERVED_PATHS.remove(pathBuild.filePath);
                     }
-
-                    // 构建 RepositoryConfig.Spec 对象
-                    RepositoryConfig.Spec spec = new RepositoryConfig.Spec();
-                    spec.setOwner(owner);
-                    spec.setRepo(repoName); // 使用 repoName 作为 repo 值
-                    spec.setBranch(branch != null ? branch : "master");
-                    spec.setPat(token);
-                    spec.setRootPath(path != null && !path.isBlank() ? path : "attachments");
-
-                    // 构造存储路径：rootPath/YYYYMMDD/timestamp.ext
-                    final String dateDir = DateTimeFormatter.ofPattern("yyyyMMdd")
-                            .format(Instant.now().atZone(ZoneId.systemDefault()));
-                    final String ts = String.valueOf(System.currentTimeMillis());
-
-                    // 提取文件扩展名
-                    final String originalFilename = filePart.filename();
-                    final String ext = extractExt(originalFilename);
-
-                    // 根据 namePrefix 配置决定文件名格式
-                    final String filename;
-                    if (namePrefix && originalFilename != null && !originalFilename.isBlank()) {
-                        // 保留原文件名作为后缀，最长15个字符
-                        String originalName = originalFilename;
-                        if (originalName.length() > 15) {
-                            originalName = originalName.substring(0, 15);
-                        }
-                        filename = ts + "-" + originalName;
-                    } else {
-                        filename = ts + (ext != null ? ("." + ext) : "");
-                    }
-                    
-                    final String filePath = spec.getRootPath() + "/" + dateDir + "/" + filename;
-                    // 组装上传
-                    return filePart.content()
-                            .reduce(new java.io.ByteArrayOutputStream(), (baos, dataBuffer) -> {
-                                try {
-                                    java.nio.ByteBuffer nio = dataBuffer.asByteBuffer();
-                                    byte[] bytes = new byte[nio.remaining()];
-                                    nio.get(bytes);
-                                    baos.write(bytes);
-                                    return baos;
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            })
-                            .flatMap(baos -> {
-                                byte[] bytes = baos.toByteArray();
-                                // 大小校验
-                                if (spec.getMaxSizeMB() != null && spec.getMaxSizeMB() > 0) {
-                                    long maxBytes = spec.getMaxSizeMB() * 1024L * 1024L;
-                                    if (bytes.length > maxBytes) {
-                                        return Mono.error(new IllegalArgumentException(
-                                                "文件超过大小限制: " + spec.getMaxSizeMB() + "MB"));
-                                    }
-                                }
-                                try {
-                                    String sha = gitHubService.uploadContent(settings, filePath, bytes,
-                                            "Upload via Halo AttachmentHandler");
-                                    String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
-                                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
-                                    // 记录附件到扩展模型，便于后续删除与审计（与现有策略一致）
-                                    // 构造 Halo Attachment 返回
-                                    Attachment attachment = new Attachment();
-                                    // 初始化 metadata（AbstractExtension 需要手动初始化）
-                                    var metadata = new Metadata();
-                                    metadata.setName(UUID.randomUUID().toString());
-                                    attachment.setMetadata(metadata);
-                                    HashMap<String, String> annotationMap = new HashMap<>();
-                                    annotationMap.put("path", filePath);
-                                    annotationMap.put("sha", sha);
-                                    attachment.getMetadata().setAnnotations(annotationMap);
-                                    
-                                    Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
-                                    as.setDisplayName(originalFilename);
-                                    as.setGroupName("githuboss");
-                                    as.setPolicyName(policy.getMetadata().getName());
-                                    as.setOwnerName("system"); // 可根据登录用户设置
-                                    as.setMediaType(getMediaTypeByExt(ext));
-                                    as.setSize((long) bytes.length);
-                                    attachment.setSpec(as);
-                                    Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
-                                    status.setPermalink(cdnUrl);
-                                    attachment.setStatus(status);
-                                    return Mono.just(attachment);
-                                } catch (Exception e) {
-                                    return Mono.error(e);
-                                }
-                            });
                 })
                 .onErrorMap(GitHubExceptionHandler::map);
+    }
+
+    // 新增：将路径与文件名构造逻辑提取为方法，保持原有逻辑不变
+    private record PathBuildResult(String filePath, String filename, String ext) {}
+
+    // 新增：将路径与文件名构造逻辑提取为方法，保持原有逻辑不变
+    private PathBuildResult buildPathAndName(GithubOssPolicySettings settings, FilePart filePart) {
+        final String namePrefix = settings.getNamePrefix();
+        // 基准时间只取一次；若冲突则在此基础上“秒级 +1”
+        var baseNow = Instant.now().atZone(ZoneId.systemDefault());
+
+        final String originalFilename = filePart.filename();
+        final String ext = extractExt(originalFilename);
+        final String trimmedOriginal = Optional.ofNullable(originalFilename)
+                .map(String::trim)
+                .orElse("");
+        final String shortOriginal = trimmedOriginal.length() > 15
+                ? trimmedOriginal.substring(0, 15)
+                : trimmedOriginal;
+
+        int bump = 0;
+        final int maxAttempts = 120; // 合理上限，避免极端情况下无限循环
+        while (true) {
+            var now = baseNow.plusSeconds(bump);
+
+            final String folderPattern = (namePrefix != null && !namePrefix.isBlank())
+                    ? switch (namePrefix) {
+                        case "yyyy" -> "yyyy";
+                        case "yyyyMM" -> "yyyyMM";
+                        case "yyyyMMdd" -> "yyyyMMdd";
+                        default -> null;
+                    }
+                    : null;
+            final String folderDir = folderPattern == null
+                    ? ""
+                    : DateTimeFormatter.ofPattern(folderPattern).format(now);
+
+            String timePattern;
+            if (folderPattern == null) {
+                timePattern = "yyyyMMddHHmmss";
+            } else if ("yyyy".equals(folderPattern)) {
+                timePattern = "MMddHHmmss";
+            } else if ("yyyyMM".equals(folderPattern)) {
+                timePattern = "ddHHmmss";
+            } else { // "yyyyMMdd"
+                timePattern = "ddHHmmss";
+            }
+            String timePrefix = DateTimeFormatter.ofPattern(timePattern).format(now);
+
+            final String filename = !shortOriginal.isBlank()
+                    ? (timePrefix + "-" + shortOriginal)
+                    : (timePrefix + (ext != null ? ("." + ext) : ""));
+
+            final String filePath = new StringBuilder(settings.getPath())
+                    .append(folderDir.isBlank() ? "" : ("/" + folderDir))
+                    .append("/")
+                    .append(filename)
+                    .toString();
+
+            synchronized (RESERVED_PATHS) {
+                if (!RESERVED_PATHS.contains(filePath)) {
+                    RESERVED_PATHS.add(filePath);
+                    return new PathBuildResult(filePath, filename, ext);
+                }
+            }
+
+            bump++;
+            if (bump > maxAttempts) {
+                throw new IllegalStateException("无法生成唯一文件名: 冲突过多，请稍后重试");
+            }
+        }
     }
 
     /**
@@ -232,6 +250,40 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         int i = filename.lastIndexOf('.');
         if (i < 0) return null;
         return filename.substring(i + 1);
+    }
+
+    /**
+     * 通用：校验文件最小大小（单位 MB），不满足时返回 Mono.error。
+     * minSizeMB 为 null 或 <=0 时直接回传 bytes。
+     */
+    private Mono<byte[]> validateMinSize(byte[] bytes, Integer minSizeMB) {
+        if (minSizeMB == null || minSizeMB <= 0) {
+            return Mono.just(bytes);
+        }
+        if (bytes == null) {
+            return Mono.error(new IllegalArgumentException("文件内容为空"));
+        }
+        long minBytes = minSizeMB * 1024L * 1024L;
+        if ((long) bytes.length < minBytes) {
+            return Mono.error(new IllegalArgumentException("文件大小低于最小限制: " + minSizeMB + "MB"));
+        }
+        return Mono.just(bytes);
+    }
+
+    private Mono<byte[]> readFileBytes(FilePart filePart) {
+        return filePart.content()
+                .reduce(new java.io.ByteArrayOutputStream(), (baos, dataBuffer) -> {
+                    try {
+                        var nio = dataBuffer.asByteBuffer();
+                        byte[] bytes = new byte[nio.remaining()];
+                        nio.get(bytes);
+                        baos.write(bytes);
+                        return baos;
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .map(java.io.ByteArrayOutputStream::toByteArray);
     }
 
     /**

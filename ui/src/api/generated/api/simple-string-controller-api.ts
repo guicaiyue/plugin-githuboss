@@ -21,8 +21,6 @@ import globalAxios from 'axios';
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
-// @ts-ignore
-import type { ConfigMap } from '../models';
 /**
  * SimpleStringControllerApi - axios parameter creator
  * @export
@@ -31,14 +29,14 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
     return {
         /**
          * 
-         * @param {string} repoName 
+         * @param {string} policyName 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getGitHubOssContents: async (repoName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'repoName' is not null or undefined
-            assertParamExists('getGitHubOssContents', 'repoName', repoName)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/github/oss/contents`;
+        listGitHubAttachments: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'policyName' is not null or undefined
+            assertParamExists('listGitHubAttachments', 'policyName', policyName)
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/list`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -58,90 +56,9 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
             // http bearer authentication required
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-            if (repoName !== undefined) {
-                localVarQueryParameter['repoName'] = repoName;
+            if (policyName !== undefined) {
+                localVarQueryParameter['policyName'] = policyName;
             }
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @param {string} arg0 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getGreet: async (arg0: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'arg0' is not null or undefined
-            assertParamExists('getGreet', 'arg0', arg0)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/greet`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication basicAuth required
-            // http basic authentication required
-            setBasicAuthToObject(localVarRequestOptions, configuration)
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-            if (arg0 !== undefined) {
-                localVarQueryParameter['arg0'] = arg0;
-            }
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHello: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/hello`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication basicAuth required
-            // http basic authentication required
-            setBasicAuthToObject(localVarRequestOptions, configuration)
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
 
     
@@ -160,10 +77,10 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listGitHubDirectoryContents: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        listGitHubHaloAttachments: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'policyName' is not null or undefined
-            assertParamExists('listGitHubDirectoryContents', 'policyName', policyName)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/github/oss/list`;
+            assertParamExists('listGitHubHaloAttachments', 'policyName', policyName)
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/haloList`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -210,37 +127,14 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
     return {
         /**
          * 
-         * @param {string} repoName 
+         * @param {string} policyName 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getGitHubOssContents(repoName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ConfigMap>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getGitHubOssContents(repoName, options);
+        async listGitHubAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubAttachments(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.getGitHubOssContents']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @param {string} arg0 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async getGreet(arg0: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getGreet(arg0, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.getGreet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async getHello(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getHello(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.getHello']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubAttachments']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -249,10 +143,10 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async listGitHubDirectoryContents(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubDirectoryContents(policyName, options);
+        async listGitHubHaloAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: string; }>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubHaloAttachments(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubDirectoryContents']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubHaloAttachments']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -267,80 +161,49 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
     return {
         /**
          * 
-         * @param {SimpleStringControllerApiGetGitHubOssContentsRequest} requestParameters Request parameters.
+         * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getGitHubOssContents(requestParameters: SimpleStringControllerApiGetGitHubOssContentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<ConfigMap> {
-            return localVarFp.getGitHubOssContents(requestParameters.repoName, options).then((request) => request(axios, basePath));
+        listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.listGitHubAttachments(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {SimpleStringControllerApiGetGreetRequest} requestParameters Request parameters.
+         * @param {SimpleStringControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getGreet(requestParameters: SimpleStringControllerApiGetGreetRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
-            return localVarFp.getGreet(requestParameters.arg0, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHello(options?: RawAxiosRequestConfig): AxiosPromise<string> {
-            return localVarFp.getHello(options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @param {SimpleStringControllerApiListGitHubDirectoryContentsRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        listGitHubDirectoryContents(requestParameters: SimpleStringControllerApiListGitHubDirectoryContentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
-            return localVarFp.listGitHubDirectoryContents(requestParameters.policyName, options).then((request) => request(axios, basePath));
+        listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: string; }> {
+            return localVarFp.listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
     };
 };
 
 /**
- * Request parameters for getGitHubOssContents operation in SimpleStringControllerApi.
+ * Request parameters for listGitHubAttachments operation in SimpleStringControllerApi.
  * @export
- * @interface SimpleStringControllerApiGetGitHubOssContentsRequest
+ * @interface SimpleStringControllerApiListGitHubAttachmentsRequest
  */
-export interface SimpleStringControllerApiGetGitHubOssContentsRequest {
+export interface SimpleStringControllerApiListGitHubAttachmentsRequest {
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiGetGitHubOssContents
+     * @memberof SimpleStringControllerApiListGitHubAttachments
      */
-    readonly repoName: string
+    readonly policyName: string
 }
 
 /**
- * Request parameters for getGreet operation in SimpleStringControllerApi.
+ * Request parameters for listGitHubHaloAttachments operation in SimpleStringControllerApi.
  * @export
- * @interface SimpleStringControllerApiGetGreetRequest
+ * @interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest
  */
-export interface SimpleStringControllerApiGetGreetRequest {
+export interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest {
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiGetGreet
-     */
-    readonly arg0: string
-}
-
-/**
- * Request parameters for listGitHubDirectoryContents operation in SimpleStringControllerApi.
- * @export
- * @interface SimpleStringControllerApiListGitHubDirectoryContentsRequest
- */
-export interface SimpleStringControllerApiListGitHubDirectoryContentsRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof SimpleStringControllerApiListGitHubDirectoryContents
+     * @memberof SimpleStringControllerApiListGitHubHaloAttachments
      */
     readonly policyName: string
 }
@@ -354,45 +217,24 @@ export interface SimpleStringControllerApiListGitHubDirectoryContentsRequest {
 export class SimpleStringControllerApi extends BaseAPI {
     /**
      * 
-     * @param {SimpleStringControllerApiGetGitHubOssContentsRequest} requestParameters Request parameters.
+     * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof SimpleStringControllerApi
      */
-    public getGitHubOssContents(requestParameters: SimpleStringControllerApiGetGitHubOssContentsRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).getGitHubOssContents(requestParameters.repoName, options).then((request) => request(this.axios, this.basePath));
+    public listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig) {
+        return SimpleStringControllerApiFp(this.configuration).listGitHubAttachments(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {SimpleStringControllerApiGetGreetRequest} requestParameters Request parameters.
+     * @param {SimpleStringControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof SimpleStringControllerApi
      */
-    public getGreet(requestParameters: SimpleStringControllerApiGetGreetRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).getGreet(requestParameters.arg0, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
-     */
-    public getHello(options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).getHello(options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @param {SimpleStringControllerApiListGitHubDirectoryContentsRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
-     */
-    public listGitHubDirectoryContents(requestParameters: SimpleStringControllerApiListGitHubDirectoryContentsRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).listGitHubDirectoryContents(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
+    public listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig) {
+        return SimpleStringControllerApiFp(this.configuration).listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

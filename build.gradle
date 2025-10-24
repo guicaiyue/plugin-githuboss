@@ -77,7 +77,7 @@ haloPlugin {
     ]
     generator {
        // 指定 API 客户端代码的输出目录如 console 或 ui
-      outputDir = file("${projectDir}/ui/src/api")
+      outputDir = file("${projectDir}/ui/src/api/generated")
 
       // 定制生成，以下是默认配置可以不需要添加到 build.gradle 中
       additionalProperties = [

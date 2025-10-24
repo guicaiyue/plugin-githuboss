@@ -79,6 +79,10 @@ public class GitHubService {
             // 删除成功直接返回
             return;
         }
+        if (resp.statusCode() == 404) {
+            // 404也说明删除成功直接返回
+            return;
+        }
         throw new RuntimeException("GitHub 删除失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
     }
 

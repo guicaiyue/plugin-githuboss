@@ -9,11 +9,9 @@ configuration.ts
 git_push.sh
 index.ts
 models/add-operation.ts
-models/config-map.ts
 models/copy-operation.ts
 models/index.ts
 models/json-patch-inner.ts
-models/metadata.ts
 models/move-operation.ts
 models/remove-operation.ts
 models/replace-operation.ts

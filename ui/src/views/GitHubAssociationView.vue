@@ -128,57 +128,22 @@
               </button>
             </div>
           </div>
-          <VEntityContainer>
-            <VEntity
-              v-for="(file, index) in s3Objects.objects"
-              :key="index"
-              :is-selected="checkSelection(file)"
-            >
-              <template #checkbox>
-                <input
-                  v-model="selectedFiles"
-                  :value="file.key || ''"
-                  :disabled="file.isLinked"
-                  type="checkbox"
-                />
-              </template>
-              <template #start>
-                <VEntityField>
-                  <template #description>
-                    <AttachmentFileTypeIcon
-                      :display-ext="false"
-                      :file-name="file.displayName || ''"
-                      :width="8"
-                      :height="8"
-                    />
-                  </template>
-                </VEntityField>
-                <VEntityField
-                  :title="file.displayName || ''"
-                  :description="file.key || ''"
-                />
-              </template>
-              <template #end>
-                <VEntityField>
-                  <template #description>
-                    <VTag :theme="file.isLinked ? 'default' : 'primary'">
-                      {{ file.isLinked ? "已关联" : "未关联" }}
-                    </VTag>
-                  </template>
-                </VEntityField>
-                <VEntityField>
-                  <template #description>
-                    <VButton
-                      :disabled="file.isLinked || false"
-                      @click="selectOneAndLink(file)"
-                    >
-                      关联
-                    </VButton>
-                  </template>
-                </VEntityField>
-              </template>
-            </VEntity>
-          </VEntityContainer>
+          <div class="px-4">
+            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+              <AttachmentCard
+                v-for="(file, index) in s3Objects.objects"
+                :key="file.key || index"
+                :title="file.displayName || ''"
+                :description="file.key || ''"
+                :image-src="file.downloadUrl || ''"
+                :linked="file.isLinked || false"
+                :selected="checkSelection(file)"
+                :disabled="file.isLinked || false"
+                @toggle-select="handleSelectFile(file.key || '')"
+                @link="selectOneAndLink(file)"
+              />
+            </div>
+          </div>
         </div>
       </Transition>
 
@@ -293,6 +258,7 @@ import {
 } from '@halo-dev/components'
 import { coreApiClient,axiosInstance  } from '@halo-dev/api-client'
 import { SimpleStringControllerApi } from '@/api'
+import AttachmentCard from '@/components/AttachmentCard.vue'
 
 var simpleStringControllerApi = new SimpleStringControllerApi(
   undefined,
@@ -326,6 +292,7 @@ const s3Objects = ref<{
   objects?: Array<{
     key?: string
     displayName?: string
+    downloadUrl?: string
     isLinked?: boolean
   }>
   hasMore?: boolean
@@ -465,53 +432,43 @@ const fetchS3Objects = async () => {
 
   isFetching.value = true
   try {
-    simpleStringControllerApi.listGitHubDirectoryContents({
-      policyName: policyName.value
-    }).then(response => {
-      // handle response
-      console.log(response.data)
-    })
-    // 模拟获取 S3 对象数据
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const [haloResp, ghResp] = await Promise.all([
+      simpleStringControllerApi.listGitHubHaloAttachments({
+        policyName: policyName.value
+      }),
+      simpleStringControllerApi.listGitHubAttachments({
+        policyName: policyName.value
+      })
+    ])
 
-    const mockObjects = [
-      {
-        key: 'images/photo1.jpg',
-        displayName: 'photo1.jpg',
-        isLinked: Math.random() > 0.5
-      },
-      {
-        key: 'images/photo2.png',
-        displayName: 'photo2.png',
-        isLinked: Math.random() > 0.5
-      },
-      {
-        key: 'documents/readme.md',
-        displayName: 'readme.md',
-        isLinked: Math.random() > 0.5
-      }
-    ]
+    const rawData = typeof ghResp.data === 'string' ? JSON.parse(ghResp.data) : ghResp.data
+    const haloMap: Record<string, string> = (haloResp?.data as any) || {}
 
-    // 根据筛选条件过滤数据
-    let filteredObjects = mockObjects
+    let items = Array.isArray(rawData) ? rawData : []
+    items = items.filter((item: any) => item?.type === 'file')
+
+    let mapped = items.map((item: any) => ({
+      key: item?.path || item?.name || '',
+      displayName: item?.name || item?.path || '',
+      downloadUrl: item?.download_url || '',
+      isLinked: !!haloMap[(item?.path || '')]
+    }))
 
     if (filePrefixBind.value) {
-      filteredObjects = filteredObjects.filter(obj =>
-        obj.key?.includes(filePrefixBind.value)
-      )
+      mapped = mapped.filter(obj => (obj.key || '').includes(filePrefixBind.value))
     }
 
     if (selectedLinkedStatusItem.value !== 'all') {
-      const isLinked = selectedLinkedStatusItem.value === 'linked'
-      filteredObjects = filteredObjects.filter(obj => obj.isLinked === isLinked)
+      const isLinkedFilter = selectedLinkedStatusItem.value === 'linked'
+      mapped = mapped.filter(obj => obj.isLinked === isLinkedFilter)
     }
 
     s3Objects.value = {
-      objects: filteredObjects,
+      objects: mapped,
       hasMore: false
     }
   } catch (error) {
-    console.error('获取 S3 对象失败:', error)
+    console.error('获取 GitHub 附件失败:', error)
     s3Objects.value = { objects: [], hasMore: false }
   } finally {
     isFetching.value = false

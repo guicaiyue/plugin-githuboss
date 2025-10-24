@@ -1,6 +1,7 @@
 package com.xirizhi.plugingithuboss.controller;
 
 
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,9 +10,13 @@ import com.xirizhi.plugingithuboss.service.GitHubService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
+import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.Policy;
 import run.halo.app.extension.ConfigMap;
+import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.extension.index.query.QueryFactory;
+import run.halo.app.extension.router.selector.FieldSelector;
 import run.halo.app.plugin.ApiVersion; // 确保已导入 ApiVersion 注解
 
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
@@ -31,50 +36,27 @@ public class SimpleStringController {
     private final GitHubService gitHubService;
 
     /**
-     * 根据传入策略参数，找到对应gihtub附件存储策略信息，然后通过github api 查询这个策略指定的路径下的所有附件信息返回给前端
+     * 查询这个附件存储策略，在halo上上传的文件列表
      * github api接口用的是：https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#list-repository-contents
      * @return
      */
-    @GetMapping("/github/oss/contents")
-    public Mono<ConfigMap> getGitHubOssContents(
-        @RequestParam("repoName") String repoName
-    ) {
-        log.info("name: {}", repoName);
-        if (repoName == null || repoName.isBlank()) {
-            return Mono.error(new IllegalArgumentException("name 不能为空"));
-        }
-        return client.fetch(Policy.class, "attachment-policy-lrn2y0ty")
-                .flatMap(policy -> {
-                    String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
-                    if (configMapName == null || configMapName.isBlank()) {
-                        return Mono.error(new RuntimeException("该 Policy 未配置 configMapName"));
-                    }
-                    return client.fetch(ConfigMap.class, configMapName);
+    @GetMapping("/attachments/haloList")
+    public Mono<java.util.Map<String, String>> listGitHubHaloAttachments(@RequestParam("policyName") String policyName) {
+        ListOptions listOptions = new ListOptions();
+        listOptions.setFieldSelector(FieldSelector.of(QueryFactory.equal("spec.policyName", policyName)));
+        return client.listAll(Attachment.class, listOptions, Sort.unsorted())
+                .filter(attachment -> {
+                    var annotations = attachment.getMetadata().getAnnotations();
+                    return annotations != null
+                            && annotations.get("sha") != null
+                            && annotations.get("path") != null;
                 })
-                .doOnNext(config -> log.info("config: {}", config))
-                .onErrorResume(e -> Mono.error(new RuntimeException("查询失败: " + e.getMessage(), e)));
-    }
-
-
-    /**
-     * 简单的GET接口，返回固定字符串
-     * 完整访问路径：/apis/myplugin.example.com/v1alpha1/hello
-     */
-    @GetMapping("/hello")
-    public Mono<String> getHello() {
-        // 使用Mono包装字符串，适配Halo的响应式架构
-        return Mono.just("Hello from My Halo Plugin!");
-    }
-
-    /**
-     * 带参数的GET接口，返回拼接后的字符串
-     * 完整访问路径：0000000000000
-     */
-    @GetMapping("/greet")
-    public Mono<String> getGreet(String name) {
-        // 处理参数（若name为null则默认"Guest"）
-        String actualName = name == null ? "Guest" : name;
-        return Mono.just("Hello, " + actualName + "! This is my plugin API.");
+                .collectMap(
+                        att -> att.getMetadata().getAnnotations().get("sha"),
+                        att -> att.getMetadata().getAnnotations().get("path")
+                )
+                .doOnError(error -> log.error("查询策略附件列表失败 policyName={}", policyName, error))
+                .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
     }
 
     /**
@@ -82,8 +64,8 @@ public class SimpleStringController {
      * 默认使用策略 ConfigMap.data["default"] 中的 owner/repoName/token/branch/path；
      * 可通过 query 参数 path 覆盖默认路径。
      */
-    @GetMapping("/github/oss/list")
-    public Mono<String> listGitHubDirectoryContents(@RequestParam("policyName") String policyName) {
+    @GetMapping("/Attachments/list")
+    public Mono<String> listGitHubAttachments(@RequestParam("policyName") String policyName) {
         return client.fetch(Policy.class, policyName)
                 .flatMap(policy -> {
                     String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;

@@ -8,7 +8,12 @@
         :disabled="disabled || linked"
         @change="$emit('toggle-select')"
       />
-      <img v-if="isImage" :src="imageSrc" alt="" class="w-full h-full object-cover cursor-zoom-in" @click="openPreview" />
+      <img v-if="isImage && !isDirectory" :src="imageSrc" alt="" class="w-full h-full object-cover cursor-zoom-in" @click="openPreview" />
+      <div v-else-if="isDirectory" class="flex h-full items-center justify-center text-yellow-500 cursor-pointer" @click="$emit('open')">
+        <svg class="h-12 w-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z" />
+        </svg>
+      </div>
       <div v-else class="flex h-full items-center justify-center text-gray-500">
         <span class="text-sm">{{ ext.toUpperCase() || 'FILE' }}</span>
       </div>
@@ -52,6 +57,7 @@ const props = defineProps<{
   linked?: boolean
   selected?: boolean
   disabled?: boolean
+  isDirectory?: boolean
 }>()
 
 const isImage = computed(() => !!props.imageSrc && /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(props.imageSrc))
@@ -64,7 +70,7 @@ const ext = computed(() => {
 
 const isPreviewVisible = ref(false)
 const openPreview = () => {
-  if (isImage.value && props.imageSrc) {
+  if (isImage.value && props.imageSrc && !props.isDirectory) {
     isPreviewVisible.value = true
   }
 }

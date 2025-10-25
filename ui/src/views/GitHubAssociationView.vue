@@ -88,47 +88,14 @@
 
       <Transition v-else appear name="fade">
         <div class="box-border h-full w-full">
-          <div style="padding: 0.5rem 1rem 0">
-            <span class="ml-1 mb-1 block text-sm text-gray-500">
-              关联后所加入的分组
-            </span>
-            <div
-              class="mb-5 grid grid-cols-2 gap-x-2 gap-y-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6"
-            >
-              <button
-                type="button"
-                class="inline-flex h-full w-full items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm"
-                v-for="(group, index) in [defaultGroup, ...customGroups]"
-                :key="index"
-                :class="{
-                  '!bg-gray-100 shadow-sm':
-                    group.metadata.name === selectedGroup,
-                }"
-                @click="selectedGroup = group.metadata.name"
-              >
-                <div
-                  class="inline-flex w-full flex-1 gap-x-2 break-all text-left"
-                >
-                  <slot name="text">
-                    {{ group?.spec.displayName }}
-                  </slot>
-                  <VStatusDot
-                    v-if="group?.metadata.deletionTimestamp"
-                    v-tooltip="$t('core.common.status.deleting')"
-                    state="warning"
-                    animate
-                  />
-                </div>
-                <div class="flex-none">
-                  <IconCheckboxCircle
-                    v-if="group.metadata.name === selectedGroup"
-                    class="text-primary"
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
           <div class="px-4">
+            <div class="mb-3 flex items-center justify-between mt-2.5">
+              <div class="text-xs text-gray-600 break-all">当前目录：{{ currentPath || '/' }}</div>
+              <div class="inline-flex items-center gap-2">
+                <VButton @click="goParent" :disabled="!currentPath">返回上级</VButton>
+                <VButton @click="goRoot" :disabled="!currentPath">回到根目录</VButton>
+              </div>
+            </div>
             <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
               <AttachmentCard
                 v-for="(file, index) in s3Objects.objects"
@@ -138,7 +105,9 @@
                 :image-src="file.downloadUrl || ''"
                 :linked="file.isLinked || false"
                 :selected="checkSelection(file)"
-                :disabled="file.isLinked || false"
+                :disabled="file.isLinked || (file.type !== 'file')"
+                :is-directory="file.type === 'dir'"
+                @open="enterDirectory(file)"
                 @toggle-select="handleSelectFile(file.key || '')"
                 @link="selectOneAndLink(file)"
               />
@@ -154,7 +123,7 @@
               >共 {{ s3Objects.objects?.length }} 项数据</span
             >
             <span class="text-xs text-gray-500 hidden md:flex"
-              >已自动过滤文件夹对象，页面实际显示数量少为正常现象</span
+              >已按类型排序，文件夹在前，文件在后</span
             >
           </div>
           <div class="inline-flex items-center gap-5">
@@ -283,6 +252,8 @@ const isShowModal = ref(false)
 const isLinking = ref(false)
 const linkTips = ref('')
 const linkFailedTable = ref<Array<{objectKey: string, message: string}>>([])
+const currentPath = ref('')
+const showFilesOnly = ref(false)
 
 // 策略选项
 const policyOptions = ref<Array<{label: string, value: string}>>([])
@@ -293,7 +264,9 @@ const s3Objects = ref<{
     key?: string
     displayName?: string
     downloadUrl?: string
+    type?: string
     isLinked?: boolean
+    path?: string
   }>
   hasMore?: boolean
 }>({})
@@ -437,7 +410,8 @@ const fetchS3Objects = async () => {
         policyName: policyName.value
       }),
       simpleStringControllerApi.listGitHubAttachments({
-        policyName: policyName.value
+        policyName: policyName.value,
+        path: currentPath.value
       })
     ])
 
@@ -445,13 +419,24 @@ const fetchS3Objects = async () => {
     const haloMap: Record<string, string> = (haloResp?.data as any) || {}
 
     let items = Array.isArray(rawData) ? rawData : []
-    items = items.filter((item: any) => item?.type === 'file')
+
+    // 排序：目录在前，文件在后；同类型按名称升序
+    items.sort((a: any, b: any) => {
+      const aType = a?.type || ''
+      const bType = b?.type || ''
+      if (aType !== bType) return aType === 'dir' ? -1 : 1
+      const aName = a?.name || a?.path || ''
+      const bName = b?.name || b?.path || ''
+      return aName.localeCompare(bName)
+    })
 
     let mapped = items.map((item: any) => ({
       key: item?.path || item?.name || '',
       displayName: item?.name || item?.path || '',
       downloadUrl: item?.download_url || '',
-      isLinked: !!haloMap[(item?.path || '')]
+      type: item?.type || '',
+      path: item?.path || '',
+      isLinked: haloMap[(item?.sha || '')] === (item?.path || '')
     }))
 
     if (filePrefixBind.value) {
@@ -461,6 +446,10 @@ const fetchS3Objects = async () => {
     if (selectedLinkedStatusItem.value !== 'all') {
       const isLinkedFilter = selectedLinkedStatusItem.value === 'linked'
       mapped = mapped.filter(obj => obj.isLinked === isLinkedFilter)
+    }
+
+    if (showFilesOnly.value) {
+      mapped = mapped.filter(obj => obj.type === 'file')
     }
 
     s3Objects.value = {
@@ -542,6 +531,28 @@ const selectOneAndLink = async (file: any) => {
 
 const handleNextPage = () => {
   page.value += 1
+  fetchS3Objects()
+}
+
+const enterDirectory = (file: any) => {
+  if (file?.type === 'dir') {
+    currentPath.value = file.path || file.key || ''
+    fetchS3Objects()
+  }
+}
+
+const goParent = () => {
+  const p = currentPath.value || ''
+  if (!p) return
+  const parts = p.split('/').filter(Boolean)
+  parts.pop()
+  currentPath.value = parts.join('/')
+  fetchS3Objects()
+}
+
+const goRoot = () => {
+  if (!currentPath.value) return
+  currentPath.value = ''
   fetchS3Objects()
 }
 

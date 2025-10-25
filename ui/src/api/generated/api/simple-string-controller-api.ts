@@ -30,12 +30,15 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
         /**
          * 
          * @param {string} policyName 
+         * @param {string} path 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listGitHubAttachments: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        listGitHubAttachments: async (policyName: string, path: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'policyName' is not null or undefined
             assertParamExists('listGitHubAttachments', 'policyName', policyName)
+            // verify required parameter 'path' is not null or undefined
+            assertParamExists('listGitHubAttachments', 'path', path)
             const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/list`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -58,6 +61,10 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
 
             if (policyName !== undefined) {
                 localVarQueryParameter['policyName'] = policyName;
+            }
+
+            if (path !== undefined) {
+                localVarQueryParameter['path'] = path;
             }
 
 
@@ -128,11 +135,12 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         /**
          * 
          * @param {string} policyName 
+         * @param {string} path 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async listGitHubAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubAttachments(policyName, options);
+        async listGitHubAttachments(policyName: string, path: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubAttachments(policyName, path, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubAttachments']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -166,7 +174,7 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
          * @throws {RequiredError}
          */
         listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
-            return localVarFp.listGitHubAttachments(requestParameters.policyName, options).then((request) => request(axios, basePath));
+            return localVarFp.listGitHubAttachments(requestParameters.policyName, requestParameters.path, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -192,6 +200,13 @@ export interface SimpleStringControllerApiListGitHubAttachmentsRequest {
      * @memberof SimpleStringControllerApiListGitHubAttachments
      */
     readonly policyName: string
+
+    /**
+     * 
+     * @type {string}
+     * @memberof SimpleStringControllerApiListGitHubAttachments
+     */
+    readonly path: string
 }
 
 /**
@@ -223,7 +238,7 @@ export class SimpleStringControllerApi extends BaseAPI {
      * @memberof SimpleStringControllerApi
      */
     public listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).listGitHubAttachments(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
+        return SimpleStringControllerApiFp(this.configuration).listGitHubAttachments(requestParameters.policyName, requestParameters.path, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.xirizhi.plugingithuboss.controller;
 
 
+import java.io.File;
+
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,7 +67,7 @@ public class SimpleStringController {
      * 可通过 query 参数 path 覆盖默认路径。
      */
     @GetMapping("/Attachments/list")
-    public Mono<String> listGitHubAttachments(@RequestParam("policyName") String policyName) {
+    public Mono<String> listGitHubAttachments(@RequestParam("policyName") String policyName,@RequestParam("path") String path) {
         return client.fetch(Policy.class, policyName)
                 .flatMap(policy -> {
                     String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
@@ -80,6 +82,9 @@ public class SimpleStringController {
                         return Mono.error(new IllegalArgumentException("配置数据为空"));
                     }
                     GithubOssPolicySettings settings = JsonUtils.jsonToObject(configJson, GithubOssPolicySettings.class);
+                    if (path != null && !path.isBlank()) {
+                        settings.setPath(path);
+                    }
                     return Mono.fromCallable(() -> gitHubService.listDirectoryContents(settings, settings.getPath()));
                 })
                 .doOnError(error -> log.error("查询目录内容失败", error))

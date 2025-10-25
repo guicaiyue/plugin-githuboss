@@ -21,12 +21,59 @@ import globalAxios from 'axios';
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
+// @ts-ignore
+import type { LinkReqObject } from '../models';
+// @ts-ignore
+import type { LinkRespObject } from '../models';
 /**
  * SimpleStringControllerApi - axios parameter creator
  * @export
  */
 export const SimpleStringControllerApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * 
+         * @param {Array<LinkReqObject>} linkReqObject 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        linkGitHubAttachment: async (linkReqObject: Array<LinkReqObject>, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'linkReqObject' is not null or undefined
+            assertParamExists('linkGitHubAttachment', 'linkReqObject', linkReqObject)
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/link`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication basicAuth required
+            // http basic authentication required
+            setBasicAuthToObject(localVarRequestOptions, configuration)
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(linkReqObject, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @param {string} policyName 
@@ -134,6 +181,18 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
     return {
         /**
          * 
+         * @param {Array<LinkReqObject>} linkReqObject 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async linkGitHubAttachment(linkReqObject: Array<LinkReqObject>, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LinkRespObject>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.linkGitHubAttachment(linkReqObject, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.linkGitHubAttachment']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {string} policyName 
          * @param {string} path 
          * @param {*} [options] Override http request option.
@@ -151,7 +210,7 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async listGitHubHaloAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: string; }>> {
+        async listGitHubHaloAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: boolean; }>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubHaloAttachments(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubHaloAttachments']?.[localVarOperationServerIndex]?.url;
@@ -169,6 +228,15 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
     return {
         /**
          * 
+         * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        linkGitHubAttachment(requestParameters: SimpleStringControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<LinkRespObject> {
+            return localVarFp.linkGitHubAttachment(requestParameters.linkReqObject, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -182,11 +250,25 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: string; }> {
+        listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: boolean; }> {
             return localVarFp.listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
     };
 };
+
+/**
+ * Request parameters for linkGitHubAttachment operation in SimpleStringControllerApi.
+ * @export
+ * @interface SimpleStringControllerApiLinkGitHubAttachmentRequest
+ */
+export interface SimpleStringControllerApiLinkGitHubAttachmentRequest {
+    /**
+     * 
+     * @type {Array<LinkReqObject>}
+     * @memberof SimpleStringControllerApiLinkGitHubAttachment
+     */
+    readonly linkReqObject: Array<LinkReqObject>
+}
 
 /**
  * Request parameters for listGitHubAttachments operation in SimpleStringControllerApi.
@@ -230,6 +312,17 @@ export interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest {
  * @extends {BaseAPI}
  */
 export class SimpleStringControllerApi extends BaseAPI {
+    /**
+     * 
+     * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof SimpleStringControllerApi
+     */
+    public linkGitHubAttachment(requestParameters: SimpleStringControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig) {
+        return SimpleStringControllerApiFp(this.configuration).linkGitHubAttachment(requestParameters.linkReqObject, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.

@@ -1,13 +1,15 @@
 package com.xirizhi.plugingithuboss.controller;
 
-
-import java.io.File;
+import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.xirizhi.plugingithuboss.service.GitHubService;
+import com.xirizhi.plugingithuboss.handler.GithubAttachmentHandler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class SimpleStringController {
 
     private final ReactiveExtensionClient client;
     private final GitHubService gitHubService;
+    private final GithubAttachmentHandler githubAttachmentHandler;
 
     /**
      * 查询这个附件存储策略，在halo上上传的文件列表
@@ -43,19 +46,20 @@ public class SimpleStringController {
      * @return
      */
     @GetMapping("/attachments/haloList")
-    public Mono<java.util.Map<String, String>> listGitHubHaloAttachments(@RequestParam("policyName") String policyName) {
+    public Mono<java.util.Map<String, Boolean>> listGitHubHaloAttachments(@RequestParam("policyName") String policyName) {
         ListOptions listOptions = new ListOptions();
         listOptions.setFieldSelector(FieldSelector.of(QueryFactory.equal("spec.policyName", policyName)));
         return client.listAll(Attachment.class, listOptions, Sort.unsorted())
                 .filter(attachment -> {
+                    log.info("attachment={}", JsonUtils.objectToJson(attachment));
                     var annotations = attachment.getMetadata().getAnnotations();
                     return annotations != null
                             && annotations.get("sha") != null
                             && annotations.get("path") != null;
                 })
                 .collectMap(
-                        att -> att.getMetadata().getAnnotations().get("sha"),
-                        att -> att.getMetadata().getAnnotations().get("path")
+                        att -> att.getMetadata().getAnnotations().get("sha")+att.getMetadata().getAnnotations().get("path"),
+                        att -> true
                 )
                 .doOnError(error -> log.error("查询策略附件列表失败 policyName={}", policyName, error))
                 .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
@@ -89,5 +93,43 @@ public class SimpleStringController {
                 })
                 .doOnError(error -> log.error("查询目录内容失败", error))
                 .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
+    }
+
+    // github 文件关联 halo 上的附件
+    private record linkReqObject(String policyName, String path, String sha, Long size) {}
+    private record linkRespObject(Integer saveCount, Integer failCount, String firstErrorMsg) {}
+    @PostMapping("/Attachments/link")
+    public Mono<linkRespObject> linkGitHubAttachment(@RequestBody List<linkReqObject> reqList) {
+        if (reqList == null || reqList.isEmpty()) {
+            return Mono.error(new IllegalArgumentException("请求体不能为空"));
+        }
+
+        java.util.concurrent.atomic.AtomicInteger saveCount = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger failCount = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<String> firstErrorMsg = new java.util.concurrent.atomic.AtomicReference<>();
+
+        return reactor.core.publisher.Flux.fromIterable(reqList)
+                .concatMap(req ->
+                        client.fetch(Policy.class, req.policyName())
+                                .flatMap(policy -> {
+                                    String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
+                                    if (configMapName == null || configMapName.isBlank()) {
+                                        return Mono.error(new RuntimeException("该 Policy 未配置 configMapName"));
+                                    }
+                                    return client.fetch(ConfigMap.class, configMapName)
+                                            .flatMap(config -> {
+                                                Attachment attachment = githubAttachmentHandler.buildAttachment(req.path(), req.sha(), req.size(), policy);
+                                                return client.create(attachment);
+                                            });
+                                })
+                                .doOnError(err -> {
+                                    failCount.incrementAndGet();
+                                    firstErrorMsg.compareAndSet(null, err.getMessage());
+                                    log.error("关联附件失败 policyName={}, path={}, sha={}", req.policyName(), req.path(), req.sha(), err);
+                                })
+                                .onErrorResume(err -> Mono.empty())
+                                .doOnSuccess(att -> saveCount.incrementAndGet())
+                )
+                .then(Mono.fromSupplier(() -> new linkRespObject(saveCount.get(), failCount.get(), firstErrorMsg.get())));
     }
 }

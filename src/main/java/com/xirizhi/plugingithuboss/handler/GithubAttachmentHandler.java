@@ -6,7 +6,14 @@ import com.xirizhi.plugingithuboss.service.GitHubService;
 
 import lombok.extern.slf4j.Slf4j;
 import org.pf4j.Extension;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.attachment.Attachment;
@@ -25,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * GitHub OSS 附件处理器：将上传/删除能力挂接到 Halo 的附件扩展点。
@@ -85,26 +93,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                             "Upload via Halo AttachmentHandler");
                     String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
                     log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
-                    Attachment attachment = new Attachment();
-                    var metadata = new Metadata();
-                    metadata.setName(UUID.randomUUID().toString());
-                    attachment.setMetadata(metadata);
-                    HashMap<String, String> annotationMap = new HashMap<>();
-                    annotationMap.put("path", filePath);
-                    annotationMap.put("sha", sha);
-                    attachment.getMetadata().setAnnotations(annotationMap);
-
-                    Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
-                    as.setDisplayName(pathBuild.filename());
-                    as.setGroupName("githuboss");
-                    as.setPolicyName(policy.getMetadata().getName());
-                    as.setOwnerName("system");
-                    as.setMediaType(getMediaTypeByExt(pathBuild.ext()));
-                    as.setSize((long) bytes.length);
-                    attachment.setSpec(as);
-                    Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
-                    status.setPermalink(cdnUrl);
-                    attachment.setStatus(status);
+                    Attachment attachment = buildAttachment(filePath, sha, (long) bytes.length, policy);
                     return attachment;
                 }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()))
                 .doFinally(signalType -> {
@@ -248,7 +237,45 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         }
     }
 
-    // GitHub 连通性检测已迁移至 GitHubService.checkConnectivity()
+    public <T> Mono<T> authenticationConsumer(Function<Authentication, Mono<T>> func) {
+        return ReactiveSecurityContextHolder.getContext()
+            .switchIfEmpty(Mono.error(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                "Authentication required.")))
+            .map(SecurityContext::getAuthentication)
+            .flatMap(func);
+    }
+
+    public Attachment buildAttachment(String path, String sha, long size, Policy policy) {
+        Metadata metadata = new Metadata();
+        metadata.setName(UUID.randomUUID().toString());
+        HashMap<String, String> annotationMap = new HashMap<>();
+        annotationMap.put("path", path);
+        annotationMap.put("sha", sha);
+        metadata.setAnnotations(annotationMap);
+
+        Attachment.AttachmentSpec as = new Attachment.AttachmentSpec();
+        as.setSize(size);
+        as.setDisplayName(extractFileName(path));
+        as.setMediaType(MediaTypeFactory.getMediaType(as.getDisplayName())
+                .orElse(MediaType.APPLICATION_OCTET_STREAM).toString());
+        as.setPolicyName(policy.getMetadata().getName());
+        // as.setGroupName("githuboss");
+        // as.setOwnerName(authenticationConsumer(auth -> Mono.just(auth.getName())).block());
+        
+        Attachment attachment = new Attachment();
+        attachment.setMetadata(metadata);
+        attachment.setSpec(as);
+
+        return attachment;
+    }
+
+    // 获取文件名
+    private String extractFileName(String path) {
+        if (path == null) return "";
+        int i = path.lastIndexOf('/');
+        return i >= 0 ? path.substring(i + 1) : path;
+    }
+    // 获取文件扩展名
     private String extractExt(String filename) {
         if (filename == null) return null;
         int i = filename.lastIndexOf('.');
@@ -288,94 +315,5 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     }
                 })
                 .map(java.io.ByteArrayOutputStream::toByteArray);
-    }
-
-    /**
-     * 根据文件扩展名获取 MIME 类型
-     * @param ext 文件扩展名（不含点号）
-     * @return MIME 类型字符串
-     */
-    private String getMediaTypeByExt(String ext) {
-        if (ext == null) return "application/octet-stream";
-        
-        String lowerExt = ext.toLowerCase();
-        switch (lowerExt) {
-            // 图片类型
-            case "jpg":
-            case "jpeg":
-                return "image/jpeg";
-            case "png":
-                return "image/png";
-            case "gif":
-                return "image/gif";
-            case "webp":
-                return "image/webp";
-            case "svg":
-                return "image/svg+xml";
-            case "bmp":
-                return "image/bmp";
-            case "ico":
-                return "image/x-icon";
-            
-            // 文档类型
-            case "pdf":
-                return "application/pdf";
-            case "doc":
-                return "application/msword";
-            case "docx":
-                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            case "xls":
-                return "application/vnd.ms-excel";
-            case "xlsx":
-                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            case "ppt":
-                return "application/vnd.ms-powerpoint";
-            case "pptx":
-                return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            
-            // 文本类型
-            case "txt":
-                return "text/plain";
-            case "html":
-            case "htm":
-                return "text/html";
-            case "css":
-                return "text/css";
-            case "js":
-                return "application/javascript";
-            case "json":
-                return "application/json";
-            case "xml":
-                return "application/xml";
-            case "csv":
-                return "text/csv";
-            
-            // 压缩文件
-            case "zip":
-                return "application/zip";
-            case "rar":
-                return "application/vnd.rar";
-            case "7z":
-                return "application/x-7z-compressed";
-            case "tar":
-                return "application/x-tar";
-            case "gz":
-                return "application/gzip";
-            
-            // 音视频
-            case "mp3":
-                return "audio/mpeg";
-            case "wav":
-                return "audio/wav";
-            case "mp4":
-                return "video/mp4";
-            case "avi":
-                return "video/x-msvideo";
-            case "mov":
-                return "video/quicktime";
-             
-            default:
-                return "application/octet-stream";
-        }
     }
 }

@@ -267,6 +267,8 @@ const s3Objects = ref<{
     type?: string
     isLinked?: boolean
     path?: string
+    sha?: string
+    size?: number
   }>
   hasMore?: boolean
 }>({})
@@ -436,7 +438,9 @@ const fetchS3Objects = async () => {
       downloadUrl: item?.download_url || '',
       type: item?.type || '',
       path: item?.path || '',
-      isLinked: haloMap[(item?.sha || '')] === (item?.path || '')
+      sha: item?.sha || '',
+      size: typeof item?.size === 'number' ? item.size : 0,
+      isLinked: !!haloMap[(item?.sha+item?.path || '')]
     }))
 
     if (filePrefixBind.value) {
@@ -465,32 +469,60 @@ const fetchS3Objects = async () => {
 }
 
 const handleLinkFiles = async () => {
-  if (selectedFiles.value.length === 0) return
+  if (selectedFiles.value.length === 0 || !policyName.value) return
 
   isLinking.value = true
+  isShowModal.value = true
   linkTips.value = `正在关联 ${selectedFiles.value.length} 个文件...`
   linkFailedTable.value = []
 
   try {
-    // 模拟关联操作
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    const payload = selectedFiles.value
+      .map(key => {
+        const item = s3Objects.value.objects?.find(o => (o.key || '') === key)
+        if (!item) return null
+        return {
+          policyName: policyName.value,
+          path: item.path || key,
+          sha: item.sha || '',
+          size: item.size ?? 0
+        }
+      })
+      .filter(Boolean) as Array<{
+        policyName: string
+        path: string
+        sha: string
+        size: number
+      }>
 
-    // 模拟部分失败的情况
-    const failedFiles = selectedFiles.value.slice(0, Math.floor(selectedFiles.value.length / 3))
-    linkFailedTable.value = failedFiles.map(key => ({
-      objectKey: key,
-      message: '关联失败：文件已存在'
-    }))
+    const { data } = await simpleStringControllerApi.linkGitHubAttachment({ linkReqObject: payload })
 
-    linkTips.value = `关联完成！成功: ${selectedFiles.value.length - failedFiles.length}, 失败: ${failedFiles.length}`
+    const save = Number(data?.saveCount ?? 0)
+    const fail = Number(data?.failCount ?? 0)
+    const err = data?.firstErrorMsg ?? ''
 
-    // 刷新数据
+    linkTips.value = `关联完成！成功: ${save}, 失败: ${fail}${err ? `，首个错误: ${err}` : ''}`
+
+    if (fail > 0) {
+      linkFailedTable.value = [
+        {
+          objectKey: `共 ${fail} 项`,
+          message: err || '未知错误'
+        }
+      ]
+    } else {
+      linkFailedTable.value = []
+    }
+
     await fetchS3Objects()
     selectedFiles.value = []
     checkedAll.value = false
-  } catch (error) {
+  } catch (error: any) {
     console.error('关联文件失败:', error)
-    linkTips.value = '关联失败，请重试'
+    linkTips.value = `关联失败：${error?.message || '未知错误'}`
+    linkFailedTable.value = [
+      { objectKey: '请求失败', message: error?.message || '未知错误' }
+    ]
   } finally {
     isLinking.value = false
   }

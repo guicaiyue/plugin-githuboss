@@ -12,6 +12,8 @@ models/add-operation.ts
 models/copy-operation.ts
 models/index.ts
 models/json-patch-inner.ts
+models/link-req-object.ts
+models/link-resp-object.ts
 models/move-operation.ts
 models/remove-operation.ts
 models/replace-operation.ts

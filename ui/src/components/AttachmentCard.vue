@@ -8,14 +8,13 @@
         :disabled="disabled || linked"
         @change="$emit('toggle-select')"
       />
-      <img v-if="isImage" :src="imageSrc" alt="" class="w-full h-full object-cover" />
+      <img v-if="isImage" :src="imageSrc" alt="" class="w-full h-full object-cover cursor-zoom-in" @click="openPreview" />
       <div v-else class="flex h-full items-center justify-center text-gray-500">
         <span class="text-sm">{{ ext.toUpperCase() || 'FILE' }}</span>
       </div>
     </div>
     <div class="px-3 py-2">
       <p class="text-sm text-gray-800 truncate">{{ title }}</p>
-      <p class="text-xs text-gray-500 truncate">{{ description }}</p>
     </div>
     <div class="px-3 py-2 flex items-center justify-between">
       <VTag :theme="linked ? 'default' : 'primary'">
@@ -24,10 +23,26 @@
       <VButton :disabled="linked || disabled" @click="$emit('link')">关联</VButton>
     </div>
   </div>
+  <!-- 图片预览遮罩 -->
+  <div
+    v-if="isPreviewVisible"
+    class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50" style="background-color: rgba(0,0,0,0.5);"
+    @click.self="closePreview"
+  >
+    <div class="relative w-[70vw] max-h-[80vh] bg-white rounded-md shadow-lg p-2">
+      <button
+        class="absolute right-2 top-2 rounded-full bg-gray-800/80 text-white px-2 py-1 text-xs"
+        @click="closePreview"
+      >
+        关闭
+      </button>
+      <img :src="imageSrc" alt="" class="max-h-[75vh] w-full object-contain" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { VTag, VButton } from '@halo-dev/components'
 
 const props = defineProps<{
@@ -46,4 +61,14 @@ const ext = computed(() => {
   const parts = name.split('.')
   return parts.length > 1 ? parts.pop() || '' : ''
 })
+
+const isPreviewVisible = ref(false)
+const openPreview = () => {
+  if (isImage.value && props.imageSrc) {
+    isPreviewVisible.value = true
+  }
+}
+const closePreview = () => {
+  isPreviewVisible.value = false
+}
 </script>

@@ -109,7 +109,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                 }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()))
                 .doFinally(signalType -> {
                     synchronized (RESERVED_PATHS) {
-                        RESERVED_PATHS.remove(pathBuild.filePath);
+                        RESERVED_PATHS.remove(pathBuild.filePath());
                     }
                 })
                 .onErrorMap(GitHubExceptionHandler::map);
@@ -129,9 +129,12 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         final String trimmedOriginal = Optional.ofNullable(originalFilename)
                 .map(String::trim)
                 .orElse("");
-        final String shortOriginal = trimmedOriginal.length() > 15
-                ? trimmedOriginal.substring(0, 15)
-                : trimmedOriginal;
+        // 移除 15 字符限制，改为保留完整原始文件名（不含扩展名）
+        final String baseOriginal = trimmedOriginal.isBlank()
+                ? ""
+                : (ext != null && trimmedOriginal.lastIndexOf('.') >= 0
+                    ? trimmedOriginal.substring(0, trimmedOriginal.lastIndexOf('.'))
+                    : trimmedOriginal);
 
         int bump = 0;
         final int maxAttempts = 120; // 合理上限，避免极端情况下无限循环
@@ -162,8 +165,9 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             }
             String timePrefix = DateTimeFormatter.ofPattern(timePattern).format(now);
 
-            final String filename = !shortOriginal.isBlank()
-                    ? (timePrefix + "-" + shortOriginal)
+            // 将日期后缀追加到原始文件名后面（扩展名前），保留扩展名
+            final String filename = !baseOriginal.isBlank()
+                    ? (baseOriginal + "-" + timePrefix + (ext != null ? ("." + ext) : ""))
                     : (timePrefix + (ext != null ? ("." + ext) : ""));
 
             final String filePath = new StringBuilder(settings.getPath())

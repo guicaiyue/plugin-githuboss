@@ -355,6 +355,8 @@ const fetchPolicies = async () => {
         { label: '请先创建 GitHub OSS 存储策略', value: '' }
       ]
     }
+    policyName.value = policyOptions.value[0].value
+    handleFirstPage();
   } catch (error) {
     console.error('获取存储策略失败:', error)
     // 出错时显示错误提示
@@ -481,9 +483,15 @@ const handleLinkFiles = async () => {
       ]
     } else {
       linkFailedTable.value = []
+      // 成功时直接更新缓存的 isLinked，避免重新拉取
+      selectedFiles.value.forEach(key => {
+        const target = objectsBase.value.find(o => (o.key || '') === key)
+        if (target) target.isLinked = true
+      })
+      applyFilters()
     }
 
-    await fetchS3Objects()
+    // 清理选择状态
     selectedFiles.value = []
     checkedAll.value = false
   } catch (error: any) {
@@ -542,9 +550,20 @@ const handleUnlinkFiles = async (unLinked: boolean) => {
       ]
     } else {
       linkFailedTable.value = []
+      // 成功时直接更新缓存的 isLinked，避免重新拉取
+      selectedFiles.value.forEach(key => {
+        // 如果 unLinked 为 true，才取消关联，但为 false，这个记录就要删除
+        if (!unLinked) {
+          objectsBase.value = objectsBase.value.filter(o => o.key !== key)
+        } else {
+          const target = objectsBase.value.find(o => (o.key || '') === key)
+          if (target) target.isLinked = false
+        }
+      })
+      applyFilters()
     }
 
-    await fetchS3Objects()
+    // 清理选择状态
     selectedFiles.value = []
     checkedAll.value = false
   } catch (error: any) {

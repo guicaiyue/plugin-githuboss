@@ -5,7 +5,6 @@
         type="checkbox"
         class="absolute right-1 top-1 h-4 w-4"
         :checked="selected"
-        :disabled="disabled || linked"
         @change="$emit('toggle-select')"
       />
       <img v-if="isImage && !isDirectory" :src="imageSrc" alt="" class="w-full h-auto object-cover cursor-zoom-in" @click="openPreview" />

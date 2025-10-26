@@ -18,14 +18,21 @@
         <span class="text-sm">{{ ext.toUpperCase() || 'FILE' }}</span>
       </div>
     </div>
-    <div class="px-3 py-2">
-      <p class="text-sm text-gray-800 truncate">{{ title }}</p>
-    </div>
-    <div class="px-3 py-2 flex items-center justify-between">
-      <VTag :theme="linked ? 'default' : 'primary'">
-        {{ linked ? '已关联' : '未关联' }}
-      </VTag>
-      <VButton :disabled="linked || disabled" @click="$emit('link')">关联</VButton>
+    <div class="px-3 py-2 flex items-center gap-2">
+      <p class="text-sm text-gray-800 truncate" style="flex: 1 1 auto; min-width: 0;" :alt="title">{{ title }}</p>
+      <div
+        v-if="!isDirectory"
+        class="h-10 rounded-md flex items-center justify-center px-3 shrink-0"
+        :style="[ linked ? { backgroundColor: '#22c55e', color: '#ffffff' } : { backgroundColor: '#ef4444', color: '#ffffff' }, disabled ? { opacity: '0.6', cursor: 'not-allowed' } : { cursor: 'pointer' }, hoverButton && !disabled ? { opacity: '0.85' } : {} ]"
+        @mouseenter="hoverButton = true"
+        @mouseleave="hoverButton = false"
+        @click="!disabled && (linked ? $emit('unlink') : $emit('link'))"
+        role="button"
+        :aria-disabled="disabled ? 'true' : 'false'"
+        :tabindex="disabled ? -1 : 0"
+      >
+        {{ linked ? '取消关联' : '关联' }}
+      </div>
     </div>
   </div>
   <!-- 图片预览遮罩 -->
@@ -41,7 +48,7 @@
       >
         关闭
       </button>
-      <img :src="imageSrc" alt="" style="max-width: 90vw; max-height: 90vh; object-fit: contain;" />
+      <img :src="imageSrc" alt="" style="max-width: 80vw; max-height: 80vh; object-fit: contain;" />
     </div>
   </div>
 </template>
@@ -77,4 +84,5 @@ const openPreview = () => {
 const closePreview = () => {
   isPreviewVisible.value = false
 }
+const hoverButton = ref(false)
 </script>

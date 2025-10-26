@@ -33,6 +33,50 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
     return {
         /**
          * 
+         * @param {string} policyName 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getGitHubRootPath: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'policyName' is not null or undefined
+            assertParamExists('getGitHubRootPath', 'policyName', policyName)
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/rootPath`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication basicAuth required
+            // http basic authentication required
+            setBasicAuthToObject(localVarRequestOptions, configuration)
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (policyName !== undefined) {
+                localVarQueryParameter['policyName'] = policyName;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @param {Array<LinkReqObject>} linkReqObject 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -181,6 +225,18 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
     return {
         /**
          * 
+         * @param {string} policyName 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getGitHubRootPath(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getGitHubRootPath(policyName, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.getGitHubRootPath']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {Array<LinkReqObject>} linkReqObject 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -228,6 +284,15 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
     return {
         /**
          * 
+         * @param {SimpleStringControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getGitHubRootPath(requestParameters: SimpleStringControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.getGitHubRootPath(requestParameters.policyName, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -255,6 +320,20 @@ export const SimpleStringControllerApiFactory = function (configuration?: Config
         },
     };
 };
+
+/**
+ * Request parameters for getGitHubRootPath operation in SimpleStringControllerApi.
+ * @export
+ * @interface SimpleStringControllerApiGetGitHubRootPathRequest
+ */
+export interface SimpleStringControllerApiGetGitHubRootPathRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof SimpleStringControllerApiGetGitHubRootPath
+     */
+    readonly policyName: string
+}
 
 /**
  * Request parameters for linkGitHubAttachment operation in SimpleStringControllerApi.
@@ -312,6 +391,17 @@ export interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest {
  * @extends {BaseAPI}
  */
 export class SimpleStringControllerApi extends BaseAPI {
+    /**
+     * 
+     * @param {SimpleStringControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof SimpleStringControllerApi
+     */
+    public getGitHubRootPath(requestParameters: SimpleStringControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig) {
+        return SimpleStringControllerApiFp(this.configuration).getGitHubRootPath(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.

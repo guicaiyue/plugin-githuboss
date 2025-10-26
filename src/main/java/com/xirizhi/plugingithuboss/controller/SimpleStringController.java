@@ -40,6 +40,31 @@ public class SimpleStringController {
     private final GitHubService gitHubService;
     private final GithubAttachmentHandler githubAttachmentHandler;
 
+    // 查询 github 存储策略的根目录
+    @GetMapping("/Attachments/rootPath")
+    public Mono<String> getGitHubRootPath(@RequestParam("policyName") String policyName) {
+        return client.fetch(Policy.class, policyName)
+                .map(policy -> {
+                    String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
+                    if (configMapName == null) {
+                        throw new IllegalArgumentException("策略 " + policyName + " 未配置 ConfigMap");
+                    }
+                    return configMapName;
+                })
+                .flatMap(configMapName -> client.fetch(ConfigMap.class, configMapName))
+                .map(configMap -> {
+                    GithubOssPolicySettings settings = JsonUtils.jsonToObject(configMap.getData().get("default"), GithubOssPolicySettings.class);
+                    String path = settings.getPath();
+                    if (path == null || path.isEmpty() || path.charAt(0) != '/') {
+                        path = '/' + (path == null ? "" : path);
+                    }
+                    return path;
+                })
+                .doOnError(error -> log.error("查询策略根目录失败 policyName={}", policyName, error))
+                .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
+    }
+
+
     /**
      * 查询这个附件存储策略，在halo上上传的文件列表
      * github api接口用的是：https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#list-repository-contents

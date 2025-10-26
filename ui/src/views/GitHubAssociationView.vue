@@ -92,8 +92,8 @@
             <div class="mb-3 flex items-center justify-between mt-2">
               <div class="text-xs text-gray-600 break-all">当前目录：{{ currentPath || '/' }}</div>
               <div class="inline-flex items-center gap-2">
-                <VButton @click="goParent" :disabled="!currentPath">返回上级</VButton>
-                <VButton @click="goRoot" :disabled="!currentPath">回到根目录</VButton>
+                <VButton @click="goParent" :disabled="currentPath === rootPath">返回上级</VButton>
+                <VButton @click="goRoot" :disabled="currentPath === rootPath">回到根目录</VButton>
               </div>
             </div>
             <div class="masonry">
@@ -253,6 +253,7 @@ const isShowModal = ref(false)
 const isLinking = ref(false)
 const linkTips = ref('')
 const linkFailedTable = ref<Array<{objectKey: string, message: string}>>([])
+const rootPath = ref('')
 const currentPath = ref('')
 const showFilesOnly = ref(false)
 
@@ -369,7 +370,6 @@ const fetchPolicies = async () => {
         label: policy.spec?.displayName || policy.metadata?.name || '未命名策略',
         value: policy.metadata?.name || ''
       }))
-    console.log(data.items);
     // 如果没有找到 GitHub OSS 策略，显示提示
     if (policyOptions.value.length === 0) {
       policyOptions.value = [
@@ -441,7 +441,7 @@ const fetchS3Objects = async () => {
       path: item?.path || '',
       sha: item?.sha || '',
       size: typeof item?.size === 'number' ? item.size : 0,
-      isLinked: haloMap[(item?.sha || '')] === (item?.path || '')
+      isLinked: !!haloMap[(item?.sha+item?.path || '')]
     }))
 
     if (filePrefixBind.value) {
@@ -542,6 +542,12 @@ const handleRefresh = () => {
 const handleFirstPage = () => {
   page.value = 1
   fetchS3Objects()
+  simpleStringControllerApi.getGitHubRootPath({
+    policyName: policyName.value
+  }).then((resp) => {
+    rootPath.value = resp.data || ''
+    currentPath.value = rootPath.value
+  })
 }
 
 const handleModalClose = () => {
@@ -584,8 +590,8 @@ const goParent = () => {
 }
 
 const goRoot = () => {
-  if (!currentPath.value) return
-  currentPath.value = ''
+  if (currentPath.value === rootPath.value) return
+  currentPath.value = rootPath.value
   fetchS3Objects()
 }
 

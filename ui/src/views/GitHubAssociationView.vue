@@ -43,7 +43,7 @@
                   v-model="filePrefixBind"
                   v-if="policyName"
                   placeholder="请输入文件名前缀搜索"
-                  @update:modelValue="handleFirstPage"
+                  @update:modelValue="onFilePrefixChange"
                 ></SearchInput>
               </div>
               <VSpace v-else>
@@ -187,7 +187,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   VPageHeader,
@@ -251,6 +251,17 @@ const githubObjects = ref<{
   hasMore?: boolean
 }>({})
 
+const objectsBase = ref<Array<{
+  key?: string
+  displayName?: string
+  downloadUrl?: string
+  type?: string
+  isLinked?: boolean
+  path?: string
+  sha?: string
+  size?: number
+}>>([])
+
 // 分组数据
 const defaultGroup = ref({
   metadata: { name: 'default', deletionTimestamp: undefined as string | undefined },
@@ -302,15 +313,7 @@ const onGroupChange = (value: string) => {
 const onFilePrefixChange = (value: string) => {
   filePrefixBind.value = value
   page.value = 1
-  fetchS3Objects()
-}
-
-const onClearFilters = () => {
-  filePrefixBind.value = ''
-  selectedLinkedStatusItem.value = 'all'
-  selectedGroup.value = ''
-  page.value = 1
-  fetchS3Objects()
+  applyFilters()
 }
 
 const handleCheckAllChange = (checked: boolean) => {
@@ -420,23 +423,11 @@ const fetchS3Objects = async () => {
       isLinked: !!haloMap[(item?.sha+item?.path || '')]
     }))
 
-    if (filePrefixBind.value) {
-      mapped = mapped.filter(obj => (obj.key || '').includes(filePrefixBind.value))
-    }
+    // 缓存映射后的原始数据，后续筛选复用
+    objectsBase.value = mapped
 
-    if (selectedLinkedStatusItem.value !== 'all') {
-      const isLinkedFilter = selectedLinkedStatusItem.value === 'linked'
-      mapped = mapped.filter(obj => obj.isLinked === isLinkedFilter)
-    }
-
-    if (showFilesOnly.value) {
-      mapped = mapped.filter(obj => obj.type === 'file')
-    }
-
-    githubObjects.value = {
-      objects: mapped,
-      hasMore: false
-    }
+    // 应用当前筛选条件到视图
+    applyFilters()
   } catch (error) {
     console.error('获取 GitHub 附件失败:', error)
     githubObjects.value = { objects: [], hasMore: false }
@@ -641,6 +632,33 @@ const goRoot = () => {
   currentPath.value = rootPath.value
   fetchS3Objects()
 }
+
+const applyFilters = () => {
+  let mapped = (objectsBase.value || []).slice()
+
+  if (filePrefixBind.value) {
+    mapped = mapped.filter(obj => (obj.key || '').includes(filePrefixBind.value))
+  }
+
+  if (selectedLinkedStatusItem.value !== 'all') {
+    const isLinkedFilter = selectedLinkedStatusItem.value === 'linked'
+    mapped = mapped.filter(obj => obj.isLinked === isLinkedFilter)
+  }
+
+  if (showFilesOnly.value) {
+    mapped = mapped.filter(obj => obj.type === 'file')
+  }
+
+  githubObjects.value = {
+    objects: mapped,
+    hasMore: false
+  }
+}
+
+// 监听状态筛选变化时，仅做本地过滤
+watch(selectedLinkedStatusItem, () => {
+  applyFilters()
+})
 
 const fetchObjects = () => {
   fetchS3Objects()

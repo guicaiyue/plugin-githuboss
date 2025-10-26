@@ -89,15 +89,16 @@
       <Transition v-else appear name="fade">
         <div class="box-border h-full w-full">
           <div class="px-4">
-            <div class="mb-3 flex items-center justify-between mt-2.5">
+            <div class="mb-3 flex items-center justify-between mt-2">
               <div class="text-xs text-gray-600 break-all">当前目录：{{ currentPath || '/' }}</div>
               <div class="inline-flex items-center gap-2">
                 <VButton @click="goParent" :disabled="!currentPath">返回上级</VButton>
                 <VButton @click="goRoot" :disabled="!currentPath">回到根目录</VButton>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            <div class="masonry">
               <AttachmentCard
+                class="masonry-item"
                 v-for="(file, index) in s3Objects.objects"
                 :key="file.key || index"
                 :title="file.displayName || ''"
@@ -440,7 +441,7 @@ const fetchS3Objects = async () => {
       path: item?.path || '',
       sha: item?.sha || '',
       size: typeof item?.size === 'number' ? item.size : 0,
-      isLinked: !!haloMap[(item?.sha+item?.path || '')]
+      isLinked: haloMap[(item?.sha || '')] === (item?.path || '')
     }))
 
     if (filePrefixBind.value) {
@@ -614,4 +615,35 @@ onMounted(() => {
   fetchGroups()
 })
 </script>
+
+
+<style scoped>
+/* Masonry（瀑布流）布局：根据列宽自动分列，避免大屏拉长 */
+.masonry {
+  column-gap: 12px;
+  column-fill: balance;
+  /* 默认列宽（超小屏） */
+  column-width: 160px;
+}
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+/* Tailwind 常用断点：sm:640, md:768, lg:1024, xl:1280, 2xl:1536 */
+@media (min-width: 640px) {
+  .masonry { column-width: 180px; }
+}
+@media (min-width: 768px) {
+  .masonry { column-width: 220px; }
+}
+@media (min-width: 1024px) {
+  .masonry { column-width: 260px; }
+}
+@media (min-width: 1280px) {
+  .masonry { column-width: 300px; }
+}
+@media (min-width: 1536px) {
+  .masonry { column-width: 320px; }
+}
+</style>
 

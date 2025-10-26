@@ -36,14 +36,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 @ApiVersion("githubOs.halo.run/v1alpha1") // 声明API版本（格式：{插件域名}/{版本}）
 @RestController
 @RequiredArgsConstructor
-public class SimpleStringController {
+public class AttachmentsController {
 
     private final ReactiveExtensionClient client;
     private final GitHubService gitHubService;
     private final GithubAttachmentHandler githubAttachmentHandler;
 
     // 查询 github 存储策略的根目录
-    @GetMapping("/Attachments/rootPath")
+    @GetMapping("/attachments/rootPath")
     public Mono<String> getGitHubRootPath(@RequestParam("policyName") String policyName) {
         return client.fetch(Policy.class, policyName)
                 .map(policy -> {
@@ -97,7 +97,7 @@ public class SimpleStringController {
      * 默认使用策略 ConfigMap.data["default"] 中的 owner/repoName/token/branch/path；
      * 可通过 query 参数 path 覆盖默认路径。
      */
-    @GetMapping("/Attachments/list")
+    @GetMapping("/attachments/list")
     public Mono<String> listGitHubAttachments(@RequestParam("policyName") String policyName,@RequestParam("path") String path) {
         return client.fetch(Policy.class, policyName)
                 .flatMap(policy -> {
@@ -125,7 +125,7 @@ public class SimpleStringController {
     // github 文件关联 halo 上的附件
     private record linkReqObject(String policyName, String path, String sha, Long size) {}
     private record linkRespObject(Integer saveCount, Integer failCount, String firstErrorMsg) {}
-    @PostMapping("/Attachments/link")
+    @PostMapping("/attachments/link")
     public Mono<linkRespObject> linkGitHubAttachment(@RequestBody List<linkReqObject> reqList) {
         if (reqList == null || reqList.isEmpty()) {
             return Mono.error(new IllegalArgumentException("请求体不能为空"));
@@ -180,7 +180,7 @@ public class SimpleStringController {
     private record unlinkObject(String policyName, String path, String sha, Long size) {}
     private record unlinkReqObject(String policyName, Boolean unLinked,List<unlinkObject> unlinkObjectList) {}
     private record unlinkRespObject(Integer delCount, Integer failCount, String firstErrorMsg) {}
-    @PostMapping("/Attachments/unlink")
+    @PostMapping("/attachments/unlink")
     public Mono<unlinkRespObject> unlinkGitHubAttachment(@RequestBody unlinkReqObject req) {
         if (req == null || req.unlinkObjectList() == null || req.unlinkObjectList().isEmpty()) {
             return Mono.error(new IllegalArgumentException("请求体不能为空"));

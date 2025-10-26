@@ -30,10 +30,10 @@ import type { UnlinkReqObject } from '../models';
 // @ts-ignore
 import type { UnlinkRespObject } from '../models';
 /**
- * SimpleStringControllerApi - axios parameter creator
+ * AttachmentsControllerApi - axios parameter creator
  * @export
  */
-export const SimpleStringControllerApiAxiosParamCreator = function (configuration?: Configuration) {
+export const AttachmentsControllerApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
          * 
@@ -44,7 +44,7 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
         getGitHubRootPath: async (policyName: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'policyName' is not null or undefined
             assertParamExists('getGitHubRootPath', 'policyName', policyName)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/rootPath`;
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/rootPath`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -88,7 +88,7 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
         linkGitHubAttachment: async (linkReqObject: Array<LinkReqObject>, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'linkReqObject' is not null or undefined
             assertParamExists('linkGitHubAttachment', 'linkReqObject', linkReqObject)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/link`;
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/link`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -134,7 +134,7 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
             assertParamExists('listGitHubAttachments', 'policyName', policyName)
             // verify required parameter 'path' is not null or undefined
             assertParamExists('listGitHubAttachments', 'path', path)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/list`;
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/list`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -226,7 +226,7 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
         unlinkGitHubAttachment: async (unlinkReqObject: UnlinkReqObject, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'unlinkReqObject' is not null or undefined
             assertParamExists('unlinkGitHubAttachment', 'unlinkReqObject', unlinkReqObject)
-            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/Attachments/unlink`;
+            const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/unlink`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -264,11 +264,11 @@ export const SimpleStringControllerApiAxiosParamCreator = function (configuratio
 };
 
 /**
- * SimpleStringControllerApi - functional programming interface
+ * AttachmentsControllerApi - functional programming interface
  * @export
  */
-export const SimpleStringControllerApiFp = function(configuration?: Configuration) {
-    const localVarAxiosParamCreator = SimpleStringControllerApiAxiosParamCreator(configuration)
+export const AttachmentsControllerApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = AttachmentsControllerApiAxiosParamCreator(configuration)
     return {
         /**
          * 
@@ -279,7 +279,7 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         async getGitHubRootPath(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getGitHubRootPath(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.getGitHubRootPath']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.getGitHubRootPath']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -291,7 +291,7 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         async linkGitHubAttachment(linkReqObject: Array<LinkReqObject>, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LinkRespObject>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.linkGitHubAttachment(linkReqObject, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.linkGitHubAttachment']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.linkGitHubAttachment']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -304,7 +304,7 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         async listGitHubAttachments(policyName: string, path: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubAttachments(policyName, path, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubAttachments']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.listGitHubAttachments']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -316,7 +316,7 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         async listGitHubHaloAttachments(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: boolean; }>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.listGitHubHaloAttachments(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.listGitHubHaloAttachments']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.listGitHubHaloAttachments']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -328,204 +328,204 @@ export const SimpleStringControllerApiFp = function(configuration?: Configuratio
         async unlinkGitHubAttachment(unlinkReqObject: UnlinkReqObject, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UnlinkRespObject>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.unlinkGitHubAttachment(unlinkReqObject, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SimpleStringControllerApi.unlinkGitHubAttachment']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.unlinkGitHubAttachment']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
 };
 
 /**
- * SimpleStringControllerApi - factory interface
+ * AttachmentsControllerApi - factory interface
  * @export
  */
-export const SimpleStringControllerApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-    const localVarFp = SimpleStringControllerApiFp(configuration)
+export const AttachmentsControllerApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = AttachmentsControllerApiFp(configuration)
     return {
         /**
          * 
-         * @param {SimpleStringControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getGitHubRootPath(requestParameters: SimpleStringControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+        getGitHubRootPath(requestParameters: AttachmentsControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
             return localVarFp.getGitHubRootPath(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        linkGitHubAttachment(requestParameters: SimpleStringControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<LinkRespObject> {
+        linkGitHubAttachment(requestParameters: AttachmentsControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<LinkRespObject> {
             return localVarFp.linkGitHubAttachment(requestParameters.linkReqObject, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+        listGitHubAttachments(requestParameters: AttachmentsControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
             return localVarFp.listGitHubAttachments(requestParameters.policyName, requestParameters.path, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {SimpleStringControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: boolean; }> {
+        listGitHubHaloAttachments(requestParameters: AttachmentsControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: boolean; }> {
             return localVarFp.listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {SimpleStringControllerApiUnlinkGitHubAttachmentRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiUnlinkGitHubAttachmentRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        unlinkGitHubAttachment(requestParameters: SimpleStringControllerApiUnlinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<UnlinkRespObject> {
+        unlinkGitHubAttachment(requestParameters: AttachmentsControllerApiUnlinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<UnlinkRespObject> {
             return localVarFp.unlinkGitHubAttachment(requestParameters.unlinkReqObject, options).then((request) => request(axios, basePath));
         },
     };
 };
 
 /**
- * Request parameters for getGitHubRootPath operation in SimpleStringControllerApi.
+ * Request parameters for getGitHubRootPath operation in AttachmentsControllerApi.
  * @export
- * @interface SimpleStringControllerApiGetGitHubRootPathRequest
+ * @interface AttachmentsControllerApiGetGitHubRootPathRequest
  */
-export interface SimpleStringControllerApiGetGitHubRootPathRequest {
+export interface AttachmentsControllerApiGetGitHubRootPathRequest {
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiGetGitHubRootPath
+     * @memberof AttachmentsControllerApiGetGitHubRootPath
      */
     readonly policyName: string
 }
 
 /**
- * Request parameters for linkGitHubAttachment operation in SimpleStringControllerApi.
+ * Request parameters for linkGitHubAttachment operation in AttachmentsControllerApi.
  * @export
- * @interface SimpleStringControllerApiLinkGitHubAttachmentRequest
+ * @interface AttachmentsControllerApiLinkGitHubAttachmentRequest
  */
-export interface SimpleStringControllerApiLinkGitHubAttachmentRequest {
+export interface AttachmentsControllerApiLinkGitHubAttachmentRequest {
     /**
      * 
      * @type {Array<LinkReqObject>}
-     * @memberof SimpleStringControllerApiLinkGitHubAttachment
+     * @memberof AttachmentsControllerApiLinkGitHubAttachment
      */
     readonly linkReqObject: Array<LinkReqObject>
 }
 
 /**
- * Request parameters for listGitHubAttachments operation in SimpleStringControllerApi.
+ * Request parameters for listGitHubAttachments operation in AttachmentsControllerApi.
  * @export
- * @interface SimpleStringControllerApiListGitHubAttachmentsRequest
+ * @interface AttachmentsControllerApiListGitHubAttachmentsRequest
  */
-export interface SimpleStringControllerApiListGitHubAttachmentsRequest {
+export interface AttachmentsControllerApiListGitHubAttachmentsRequest {
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiListGitHubAttachments
+     * @memberof AttachmentsControllerApiListGitHubAttachments
      */
     readonly policyName: string
 
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiListGitHubAttachments
+     * @memberof AttachmentsControllerApiListGitHubAttachments
      */
     readonly path: string
 }
 
 /**
- * Request parameters for listGitHubHaloAttachments operation in SimpleStringControllerApi.
+ * Request parameters for listGitHubHaloAttachments operation in AttachmentsControllerApi.
  * @export
- * @interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest
+ * @interface AttachmentsControllerApiListGitHubHaloAttachmentsRequest
  */
-export interface SimpleStringControllerApiListGitHubHaloAttachmentsRequest {
+export interface AttachmentsControllerApiListGitHubHaloAttachmentsRequest {
     /**
      * 
      * @type {string}
-     * @memberof SimpleStringControllerApiListGitHubHaloAttachments
+     * @memberof AttachmentsControllerApiListGitHubHaloAttachments
      */
     readonly policyName: string
 }
 
 /**
- * Request parameters for unlinkGitHubAttachment operation in SimpleStringControllerApi.
+ * Request parameters for unlinkGitHubAttachment operation in AttachmentsControllerApi.
  * @export
- * @interface SimpleStringControllerApiUnlinkGitHubAttachmentRequest
+ * @interface AttachmentsControllerApiUnlinkGitHubAttachmentRequest
  */
-export interface SimpleStringControllerApiUnlinkGitHubAttachmentRequest {
+export interface AttachmentsControllerApiUnlinkGitHubAttachmentRequest {
     /**
      * 
      * @type {UnlinkReqObject}
-     * @memberof SimpleStringControllerApiUnlinkGitHubAttachment
+     * @memberof AttachmentsControllerApiUnlinkGitHubAttachment
      */
     readonly unlinkReqObject: UnlinkReqObject
 }
 
 /**
- * SimpleStringControllerApi - object-oriented interface
+ * AttachmentsControllerApi - object-oriented interface
  * @export
- * @class SimpleStringControllerApi
+ * @class AttachmentsControllerApi
  * @extends {BaseAPI}
  */
-export class SimpleStringControllerApi extends BaseAPI {
+export class AttachmentsControllerApi extends BaseAPI {
     /**
      * 
-     * @param {SimpleStringControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiGetGitHubRootPathRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
+     * @memberof AttachmentsControllerApi
      */
-    public getGitHubRootPath(requestParameters: SimpleStringControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).getGitHubRootPath(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
+    public getGitHubRootPath(requestParameters: AttachmentsControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).getGitHubRootPath(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {SimpleStringControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiLinkGitHubAttachmentRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
+     * @memberof AttachmentsControllerApi
      */
-    public linkGitHubAttachment(requestParameters: SimpleStringControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).linkGitHubAttachment(requestParameters.linkReqObject, options).then((request) => request(this.axios, this.basePath));
+    public linkGitHubAttachment(requestParameters: AttachmentsControllerApiLinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).linkGitHubAttachment(requestParameters.linkReqObject, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {SimpleStringControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiListGitHubAttachmentsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
+     * @memberof AttachmentsControllerApi
      */
-    public listGitHubAttachments(requestParameters: SimpleStringControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).listGitHubAttachments(requestParameters.policyName, requestParameters.path, options).then((request) => request(this.axios, this.basePath));
+    public listGitHubAttachments(requestParameters: AttachmentsControllerApiListGitHubAttachmentsRequest, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).listGitHubAttachments(requestParameters.policyName, requestParameters.path, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {SimpleStringControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiListGitHubHaloAttachmentsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
+     * @memberof AttachmentsControllerApi
      */
-    public listGitHubHaloAttachments(requestParameters: SimpleStringControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
+    public listGitHubHaloAttachments(requestParameters: AttachmentsControllerApiListGitHubHaloAttachmentsRequest, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).listGitHubHaloAttachments(requestParameters.policyName, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {SimpleStringControllerApiUnlinkGitHubAttachmentRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiUnlinkGitHubAttachmentRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof SimpleStringControllerApi
+     * @memberof AttachmentsControllerApi
      */
-    public unlinkGitHubAttachment(requestParameters: SimpleStringControllerApiUnlinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig) {
-        return SimpleStringControllerApiFp(this.configuration).unlinkGitHubAttachment(requestParameters.unlinkReqObject, options).then((request) => request(this.axios, this.basePath));
+    public unlinkGitHubAttachment(requestParameters: AttachmentsControllerApiUnlinkGitHubAttachmentRequest, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).unlinkGitHubAttachment(requestParameters.unlinkReqObject, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

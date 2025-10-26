@@ -14,5 +14,5 @@
 
 
 
-export * from './api/simple-string-controller-api';
+export * from './api/attachments-controller-api';
 

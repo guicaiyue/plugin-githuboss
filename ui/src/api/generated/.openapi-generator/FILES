@@ -2,7 +2,7 @@
 .npmignore
 .openapi-generator-ignore
 api.ts
-api/simple-string-controller-api.ts
+api/attachments-controller-api.ts
 base.ts
 common.ts
 configuration.ts

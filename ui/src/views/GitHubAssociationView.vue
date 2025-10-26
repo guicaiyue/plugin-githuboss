@@ -83,7 +83,7 @@
 
       <VLoading v-if="isFetching" />
 
-      <Transition v-else-if="!s3Objects.objects?.length" appear name="fade">
+      <Transition v-else-if="!githubObjects.objects?.length" appear name="fade">
         <VEmpty message="空空如也" :title="emptyTips"> </VEmpty>
       </Transition>
 
@@ -100,7 +100,7 @@
             <div class="masonry">
               <AttachmentCard
                 class="masonry-item"
-                v-for="(file, index) in s3Objects.objects"
+                v-for="(file, index) in githubObjects.objects"
                 :key="file.key || index"
                 :title="file.displayName || ''"
                 :description="file.key || ''"
@@ -195,23 +195,16 @@ import {
   VButton,
   VSpace,
   VLoading,
-  VAlert,
   VEmpty,
-  VTag,
   VModal,
-  VStatusDot,
-  VEntity,
-  VEntityField,
-  VEntityContainer,
   IconGitHub,
-  IconCheckboxCircle,
   IconRefreshLine
 } from '@halo-dev/components'
 import { coreApiClient,axiosInstance  } from '@halo-dev/api-client'
-import { SimpleStringControllerApi } from '@/api'
+import { AttachmentsControllerApi } from '@/api'
 import AttachmentCard from '@/components/AttachmentCard.vue'
 
-var simpleStringControllerApi = new SimpleStringControllerApi(
+var attachmentsController = new AttachmentsControllerApi(
   undefined,
   axiosInstance.defaults.baseURL,
   axiosInstance
@@ -244,7 +237,7 @@ const modalTitle = ref('关联结果')
 const policyOptions = ref<Array<{label: string, value: string}>>([])
 
 // S3 对象数据
-const s3Objects = ref<{
+const githubObjects = ref<{
   objects?: Array<{
     key?: string
     displayName?: string
@@ -323,7 +316,7 @@ const onClearFilters = () => {
 const handleCheckAllChange = (checked: boolean) => {
   checkedAll.value = checked
   if (checked) {
-    selectedFiles.value = s3Objects.value.objects?.map(obj => obj.key || '') || []
+    selectedFiles.value = githubObjects.value.objects?.map(obj => obj.key || '') || []
   } else {
     selectedFiles.value = []
   }
@@ -338,7 +331,7 @@ const handleSelectFile = (objectKey: string) => {
   }
 
   // 更新全选状态
-  const totalFiles = s3Objects.value.objects?.length || 0
+  const totalFiles = githubObjects.value.objects?.length || 0
   checkedAll.value = selectedFiles.value.length === totalFiles && totalFiles > 0
 }
 
@@ -392,10 +385,10 @@ const fetchS3Objects = async () => {
   isFetching.value = true
   try {
     const [haloResp, ghResp] = await Promise.all([
-      simpleStringControllerApi.listGitHubHaloAttachments({
+      attachmentsController.listGitHubHaloAttachments({
         policyName: policyName.value
       }),
-      simpleStringControllerApi.listGitHubAttachments({
+      attachmentsController.listGitHubAttachments({
         policyName: policyName.value,
         path: currentPath.value
       })
@@ -440,13 +433,13 @@ const fetchS3Objects = async () => {
       mapped = mapped.filter(obj => obj.type === 'file')
     }
 
-    s3Objects.value = {
+    githubObjects.value = {
       objects: mapped,
       hasMore: false
     }
   } catch (error) {
     console.error('获取 GitHub 附件失败:', error)
-    s3Objects.value = { objects: [], hasMore: false }
+    githubObjects.value = { objects: [], hasMore: false }
   } finally {
     isFetching.value = false
   }
@@ -464,7 +457,7 @@ const handleLinkFiles = async () => {
   try {
     const payload = selectedFiles.value
       .map(key => {
-        const item = s3Objects.value.objects?.find(o => (o.key || '') === key)
+        const item = githubObjects.value.objects?.find(o => (o.key || '') === key)
         if (!item) return null
         return {
           policyName: policyName.value,
@@ -480,7 +473,7 @@ const handleLinkFiles = async () => {
         size: number
       }>
 
-    const { data } = await simpleStringControllerApi.linkGitHubAttachment({ linkReqObject: payload })
+    const { data } = await attachmentsController.linkGitHubAttachment({ linkReqObject: payload })
 
     const save = Number(data?.saveCount ?? 0)
     const fail = Number(data?.failCount ?? 0)
@@ -525,7 +518,7 @@ const handleUnlinkFiles = async (unLinked: boolean) => {
   try {
     const items = selectedFiles.value
       .map(key => {
-        const item = s3Objects.value.objects?.find(o => (o.key || '') === key)
+        const item = githubObjects.value.objects?.find(o => (o.key || '') === key)
         if (!item) return null
         return {
           path: item.path || key,
@@ -541,7 +534,7 @@ const handleUnlinkFiles = async (unLinked: boolean) => {
       unlinkObjectList: items
     }
 
-    const { data } = await simpleStringControllerApi.unlinkGitHubAttachment({ unlinkReqObject: reqPayload })
+    const { data } = await attachmentsController.unlinkGitHubAttachment({ unlinkReqObject: reqPayload })
 
     const del = Number(data?.delCount ?? 0)
     const fail = Number(data?.failCount ?? 0)
@@ -596,7 +589,7 @@ const handleRefresh = () => {
 const handleFirstPage = () => {
   page.value = 1
   fetchS3Objects()
-  simpleStringControllerApi.getGitHubRootPath({
+  attachmentsController.getGitHubRootPath({
     policyName: policyName.value
   }).then((resp) => {
     rootPath.value = resp.data || ''

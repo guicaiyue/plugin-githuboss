@@ -1,5 +1,6 @@
 package com.xirizhi.plugingithuboss.handler;
 
+import com.xirizhi.plugingithuboss.config.Constant;
 import com.xirizhi.plugingithuboss.exception.GitHubExceptionHandler;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import com.xirizhi.plugingithuboss.service.GitHubService;
@@ -197,8 +198,16 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         
         return  Mono.fromCallable(() -> {
                     log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", settings.getOwner(), settings.getRepoName(), settings.getOwner() + "/" + settings.getRepoName(), path);
-                    gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler");
-                    log.info("远程文件删除成功");
+                    
+                    // 检查是否仅解除关联
+                    boolean unLinked = Boolean.parseBoolean(attachment.getMetadata().getAnnotations().getOrDefault(Constant.ANNOTATION_UNLINKED, Boolean.FALSE.toString()));
+                    if (unLinked) {
+                        log.info("附件已解除关联，仅逻辑删除 attachment: {}", JsonUtils.objectToJson(attachment));
+                    }else{
+                        gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler");
+                        log.info("远程文件删除成功 attachment: {}", JsonUtils.objectToJson(attachment));
+                    }
+                    
                     return attachment;
                 })
                 .doOnError(error -> log.error("删除过程中发生错误", error))

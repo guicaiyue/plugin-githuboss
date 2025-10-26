@@ -7,3 +7,6 @@ export * from './move-operation';
 export * from './remove-operation';
 export * from './replace-operation';
 export * from './test-operation';
+export * from './unlink-object';
+export * from './unlink-req-object';
+export * from './unlink-resp-object';

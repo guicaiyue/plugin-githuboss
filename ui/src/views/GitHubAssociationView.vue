@@ -48,6 +48,7 @@
               </div>
               <VSpace v-else>
                 <VButton type="primary" @click="handleLink"> 关联 </VButton>
+                <VButton type="danger" @click="handleUnlink"> 取消关联 </VButton>
               </VSpace>
             </div>
             <VSpace spacing="lg" class="flex-wrap">
@@ -106,67 +107,47 @@
                 :image-src="file.downloadUrl || ''"
                 :linked="file.isLinked || false"
                 :selected="checkSelection(file)"
-                :disabled="file.isLinked || (file.type !== 'file')"
+                :disabled="file.type !== 'file'"
                 :is-directory="file.type === 'dir'"
                 @open="enterDirectory(file)"
                 @toggle-select="handleSelectFile(file.key || '')"
                 @link="selectOneAndLink(file)"
+                @unlink="selectOneAndUnlink(file)"
               />
             </div>
           </div>
         </div>
       </Transition>
-
-      <template #footer>
-        <div class="bg-white sm:flex sm:items-center justify-between">
-          <div class="inline-flex items-center gap-5">
-            <span class="text-xs text-gray-500 hidden md:flex"
-              >共 {{ s3Objects.objects?.length }} 项数据</span
-            >
-            <span class="text-xs text-gray-500 hidden md:flex"
-              >已按类型排序，文件夹在前，文件在后</span
-            >
-          </div>
-          <div class="inline-flex items-center gap-5">
-            <div class="inline-flex items-center gap-2">
-              <VButton @click="handleFirstPage" :disabled="!policyName"
-                >返回第一页</VButton
-              >
-
-              <span class="text-sm text-gray-500">第 {{ page }} 页</span>
-
-              <VButton
-                @click="handleNextPage"
-                :disabled="!s3Objects.hasMore || isFetching || !policyName"
-              >
-                下一页
-              </VButton>
-            </div>
-            <div class="inline-flex items-center gap-2">
-              <select
-                v-model="size"
-                class="h-8 border outline-none rounded-base pr-10 border-solid px-2 text-gray-800 text-sm border-gray-300 page-size-select"
-                @change="handleFirstPage"
-              >
-                <option
-                  v-for="(sizeOption, index) in [20, 50, 100, 200]"
-                  :key="index"
-                  :value="sizeOption"
-                >
-                  {{ sizeOption }}
-                </option>
-              </select>
-              <span class="text-sm text-gray-500">条/页</span>
-            </div>
-          </div>
-        </div>
-      </template>
+      <template #footer></template>
     </VCard>
   </div>
+
+  <!-- 取消关联确认弹窗 -->
+  <VModal
+    :visible="isConfirmUnlink"
+    :fullscreen="false"
+    title="取消关联确认"
+    :width="500"
+    :mount-to-body="true"
+    @close="handleCloseConfirmUnlink"
+  >
+    <template #footer>
+      <VSpace>
+        <VButton type="primary" @click="performUnlink(true)">仅删 Halo</VButton>
+        <VButton type="danger" @click="performUnlink(false)">同步删除 GitHub</VButton>
+        <VButton @click="handleCloseConfirmUnlink">关闭窗口</VButton>
+      </VSpace>
+    </template>
+    <div class="flex flex-col">
+      确认取消关联以下 {{ selectedFiles.length }} 个文件？
+    </div>
+  </VModal>
+
+  <!-- 结果弹窗 -->
   <VModal
     :visible="isShowModal"
     :fullscreen="false"
-    :title="'关联结果'"
+    :title="modalTitle"
     :width="500"
     :mount-to-body="true"
     @close="handleModalClose"
@@ -250,12 +231,14 @@ const selectedGroup = ref('')
 const page = ref(1)
 const size = ref(20)
 const isShowModal = ref(false)
+const isConfirmUnlink = ref(false)
 const isLinking = ref(false)
 const linkTips = ref('')
 const linkFailedTable = ref<Array<{objectKey: string, message: string}>>([])
 const rootPath = ref('')
 const currentPath = ref('')
 const showFilesOnly = ref(false)
+const modalTitle = ref('关联结果')
 
 // 策略选项
 const policyOptions = ref<Array<{label: string, value: string}>>([])
@@ -474,6 +457,7 @@ const handleLinkFiles = async () => {
 
   isLinking.value = true
   isShowModal.value = true
+  modalTitle.value = '关联结果'
   linkTips.value = `正在关联 ${selectedFiles.value.length} 个文件...`
   linkFailedTable.value = []
 
@@ -529,10 +513,80 @@ const handleLinkFiles = async () => {
   }
 }
 
-const handleCloseModal = () => {
-  isShowModal.value = false
-  linkTips.value = ''
+const handleUnlinkFiles = async (unLinked: boolean) => {
+  if (selectedFiles.value.length === 0 || !policyName.value) return
+
+  isLinking.value = true
+  isShowModal.value = true
+  modalTitle.value = '取消关联结果'
+  linkTips.value = `正在取消关联 ${selectedFiles.value.length} 个文件...`
   linkFailedTable.value = []
+
+  try {
+    const items = selectedFiles.value
+      .map(key => {
+        const item = s3Objects.value.objects?.find(o => (o.key || '') === key)
+        if (!item) return null
+        return {
+          path: item.path || key,
+          sha: item.sha || '',
+          size: item.size ?? 0
+        }
+      })
+      .filter(Boolean) as Array<{ path: string; sha: string; size: number }>
+
+    const reqPayload = {
+      policyName: policyName.value,
+      unLinked,
+      unlinkObjectList: items
+    }
+
+    const { data } = await simpleStringControllerApi.unlinkGitHubAttachment({ unlinkReqObject: reqPayload })
+
+    const del = Number(data?.delCount ?? 0)
+    const fail = Number(data?.failCount ?? 0)
+    const err = data?.firstErrorMsg ?? ''
+
+    linkTips.value = `取消关联完成！删除: ${del}, 失败: ${fail}${err ? `，首个错误: ${err}` : ''}`
+
+    if (fail > 0) {
+      linkFailedTable.value = [
+        {
+          objectKey: `共 ${fail} 项`,
+          message: err || '未知错误'
+        }
+      ]
+    } else {
+      linkFailedTable.value = []
+    }
+
+    await fetchS3Objects()
+    selectedFiles.value = []
+    checkedAll.value = false
+  } catch (error: any) {
+    console.error('取消关联失败:', error)
+    linkTips.value = `取消关联失败：${error?.message || '未知错误'}`
+    linkFailedTable.value = [
+      { objectKey: '请求失败', message: error?.message || '未知错误' }
+    ]
+  } finally {
+    isLinking.value = false
+  }
+}
+
+const selectOneAndUnlink = async (file: any) => {
+  if (!file.key) return
+  selectedFiles.value = [file.key]
+  isConfirmUnlink.value = true
+}
+
+const performUnlink = async (onlyHalo: boolean) => {
+  isConfirmUnlink.value = false
+  await handleUnlinkFiles(onlyHalo)
+}
+
+const handleCloseConfirmUnlink = () => {
+  isConfirmUnlink.value = false
 }
 
 const handleRefresh = () => {
@@ -613,6 +667,11 @@ const handleLink = () => {
   if (selectedFiles.value.length === 0) return
   isShowModal.value = true
   handleLinkFiles()
+}
+
+const handleUnlink = () => {
+  if (selectedFiles.value.length === 0) return
+  isConfirmUnlink.value = true
 }
 
 // 生命周期

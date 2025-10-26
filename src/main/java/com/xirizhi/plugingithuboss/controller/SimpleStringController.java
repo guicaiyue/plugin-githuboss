@@ -13,6 +13,7 @@ import com.xirizhi.plugingithuboss.handler.GithubAttachmentHandler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.Policy;
@@ -23,6 +24,7 @@ import run.halo.app.extension.index.query.QueryFactory;
 import run.halo.app.extension.router.selector.FieldSelector;
 import run.halo.app.plugin.ApiVersion; // 确保已导入 ApiVersion 注解
 
+import com.xirizhi.plugingithuboss.config.Constant;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import run.halo.app.infra.utils.JsonUtils;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -133,28 +135,101 @@ public class SimpleStringController {
         java.util.concurrent.atomic.AtomicInteger failCount = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicReference<String> firstErrorMsg = new java.util.concurrent.atomic.AtomicReference<>();
 
-        return reactor.core.publisher.Flux.fromIterable(reqList)
-                .concatMap(req ->
-                        client.fetch(Policy.class, req.policyName())
-                                .flatMap(policy -> {
-                                    String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
-                                    if (configMapName == null || configMapName.isBlank()) {
-                                        return Mono.error(new RuntimeException("该 Policy 未配置 configMapName"));
-                                    }
-                                    return client.fetch(ConfigMap.class, configMapName)
-                                            .flatMap(config -> {
-                                                Attachment attachment = githubAttachmentHandler.buildAttachment(req.path(), req.sha(), req.size(), policy);
-                                                return client.create(attachment);
-                                            });
-                                })
-                                .doOnError(err -> {
-                                    failCount.incrementAndGet();
-                                    firstErrorMsg.compareAndSet(null, err.getMessage());
-                                    log.error("关联附件失败 policyName={}, path={}, sha={}", req.policyName(), req.path(), req.sha(), err);
-                                })
-                                .onErrorResume(err -> Mono.empty())
-                                .doOnSuccess(att -> saveCount.incrementAndGet())
+        // 以第一个请求的策略名为准预先查询该策略下已存在的附件（sha+path）。
+        final String policyNameHead = java.util.Optional.ofNullable(reqList.get(0).policyName()).orElse("");
+
+        return listGitHubHaloAttachments(policyNameHead)
+                .onErrorResume(err -> {
+                    log.error("查询策略附件列表失败 policyName={}", policyNameHead, err);
+                    return Mono.just(java.util.Collections.<String, Boolean>emptyMap());
+                })
+                .flatMap(existingMap -> Flux.fromIterable(reqList)
+                        .concatMap(req -> {
+                            // 组合去重键：sha+path，与 listGitHubHaloAttachments 保持一致
+                            if (existingMap.containsKey(req.sha() + req.path())) {
+                                // 已存在则视为成功，不再创建，避免重复入库
+                                saveCount.incrementAndGet();
+                                return Mono.empty();
+                            }
+
+                            return client.fetch(Policy.class, req.policyName())
+                                    .flatMap(policy -> {
+                                        String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
+                                        if (configMapName == null || configMapName.isBlank()) {
+                                            return Mono.error(new RuntimeException("该 Policy 未配置 configMapName"));
+                                        }
+                                        return client.fetch(ConfigMap.class, configMapName)
+                                                .flatMap(config -> {
+                                                    Attachment attachment = githubAttachmentHandler.buildAttachment(req.path(), req.sha(), req.size(), policy);
+                                                    return client.create(attachment);
+                                                });
+                                    })
+                                    .doOnError(err -> {
+                                        failCount.incrementAndGet();
+                                        firstErrorMsg.compareAndSet(null, err.getMessage());
+                                        log.error("关联附件失败 policyName={}, path={}, sha={}", req.policyName(), req.path(), req.sha(), err);
+                                    })
+                                    .onErrorResume(err -> Mono.empty())
+                                    .doOnSuccess(att -> saveCount.incrementAndGet());
+                        })
+                        .then(Mono.fromSupplier(() -> new linkRespObject(saveCount.get(), failCount.get(), firstErrorMsg.get())))
+                );
+    }
+
+    // github 文件取消关联 halo 上的附件
+    private record unlinkObject(String policyName, String path, String sha, Long size) {}
+    private record unlinkReqObject(String policyName, Boolean unLinked,List<unlinkObject> unlinkObjectList) {}
+    private record unlinkRespObject(Integer delCount, Integer failCount, String firstErrorMsg) {}
+    @PostMapping("/Attachments/unlink")
+    public Mono<unlinkRespObject> unlinkGitHubAttachment(@RequestBody unlinkReqObject req) {
+        if (req == null || req.unlinkObjectList() == null || req.unlinkObjectList().isEmpty()) {
+            return Mono.error(new IllegalArgumentException("请求体不能为空"));
+        }
+
+        java.util.concurrent.atomic.AtomicInteger delCount = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger failCount = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<String> firstErrorMsg = new java.util.concurrent.atomic.AtomicReference<>();
+
+        ListOptions listOptions = new ListOptions();
+        listOptions.setFieldSelector(FieldSelector.of(QueryFactory.equal("spec.policyName", req.policyName())));
+
+        return client.listAll(Attachment.class, listOptions, Sort.unsorted())
+                .filter(attachment -> {
+                    var annotations = attachment.getMetadata().getAnnotations();
+                    return annotations != null
+                            && annotations.get("sha") != null
+                            && annotations.get("path") != null;
+                })
+                .collectMap(
+                        att -> att.getMetadata().getAnnotations().get("sha") + att.getMetadata().getAnnotations().get("path"),
+                        att -> att
                 )
-                .then(Mono.fromSupplier(() -> new linkRespObject(saveCount.get(), failCount.get(), firstErrorMsg.get())));
+                .onErrorResume(err -> {
+                    log.error("查询策略附件列表失败 policyName={}", req.policyName(), err);
+                    return Mono.just(java.util.Collections.<String, Attachment>emptyMap());
+                })
+                .flatMap(existingMap -> Flux.fromIterable(req.unlinkObjectList())
+                        .concatMap(unlinkItem -> {
+                            String key = (unlinkItem.sha() == null ? "" : unlinkItem.sha()) + (unlinkItem.path() == null ? "" : unlinkItem.path());
+                            Attachment target = existingMap.get(key);
+                            if (target == null) {
+                                // 未找到匹配项：默认成功
+                                delCount.incrementAndGet();
+                                return Mono.empty();
+                            }
+                            if (req.unLinked() != null && req.unLinked()) {
+                                target.getMetadata().getAnnotations().put(Constant.ANNOTATION_UNLINKED, Boolean.TRUE.toString());
+                            }
+                            return client.delete(target)
+                                    .doOnSuccess(v -> delCount.incrementAndGet())
+                                    .doOnError(err -> {
+                                        failCount.incrementAndGet();
+                                        firstErrorMsg.compareAndSet(null, err.getMessage());
+                                        log.error("取消关联失败 policyName={}, path={}, sha={}", unlinkItem.policyName(), unlinkItem.path(), unlinkItem.sha(), err);
+                                    })
+                                    .onErrorResume(err -> Mono.empty());
+                        })
+                        .then(Mono.fromSupplier(() -> new unlinkRespObject(delCount.get(), failCount.get(), firstErrorMsg.get())))
+                );
     }
 }

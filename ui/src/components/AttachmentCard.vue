@@ -23,12 +23,14 @@
       <div
         v-if="!isDirectory"
         class="h-10 rounded-md flex items-center justify-center px-3 shrink-0"
-        :style="[ linked ? { backgroundColor: '#22c55e', color: '#ffffff' } : { backgroundColor: '#ef4444', color: '#ffffff' }, disabled ? { opacity: '0.6', cursor: 'not-allowed' } : { cursor: 'pointer' }, hoverButton && !disabled ? { opacity: '0.85' } : {} ]"
+        :style="[ linked ? { backgroundColor: '#ef4444', color: '#ffffff' } : { backgroundColor: '#22c55e', color: '#ffffff' }, disabled ? { opacity: '0.6', cursor: 'not-allowed' } : { cursor: 'pointer' }, hoverButton && !disabled ? { opacity: '0.85' } : {} ]"
         @mouseenter="hoverButton = true"
         @mouseleave="hoverButton = false"
         @click="!disabled && (linked ? $emit('unlink') : $emit('link'))"
         role="button"
         :aria-disabled="disabled ? 'true' : 'false'"
+        :aria-label="linked ? '取消关联' : '关联'"
+        :title="linked ? '取消关联' : '关联'"
         :tabindex="disabled ? -1 : 0"
       >
         {{ linked ? '取消关联' : '关联' }}

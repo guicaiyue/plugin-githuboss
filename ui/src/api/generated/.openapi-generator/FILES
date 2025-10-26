@@ -18,3 +18,6 @@ models/move-operation.ts
 models/remove-operation.ts
 models/replace-operation.ts
 models/test-operation.ts
+models/unlink-object.ts
+models/unlink-req-object.ts
+models/unlink-resp-object.ts

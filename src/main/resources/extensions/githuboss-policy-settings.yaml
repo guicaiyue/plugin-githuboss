@@ -30,13 +30,13 @@ spec:
           value: ""
           placeholder: 默认文件重命名yyyyMMddHHmmss原文件名,若选中[月度文件夹],则文件名yyyyMM/ddHHmmss原文件名,若选中[日度文件夹],则文件名yyyyMMdd/ddHHmmss
           options:
-            - label: 关闭上层文件夹
+            - label: yyyyMMddHHmmss原文件名
               value: ""
-            - label: 年度文件夹
+            - label: /MMddHHmmss原文件名
               value: "yyyy"
-            - label: 月度文件夹
+            - label: yyyyMM/ddHHmmss原文件名
               value: "yyyyMM"
-            - label: 日度文件夹
+            - label: yyyyMMdd/ddHHmmss原文件名  
               value: "yyyyMMdd"
         - $formkit: password
           name: token

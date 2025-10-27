@@ -10,14 +10,13 @@ spec:
   requires: ">=2.21.0"
   author:
     name: xirizhi
-    website: https://github.com/xirizhi
-  logo: logo.png
+    website: https://xirizhi.cn
+  logo: logo.jpg
   homepage: https://github.com/xirizhi/plugin-githuboss#readme
-  repo: https://github.com/xirizhi/plugin-githuboss
-  issues: https://github.com/xirizhi/plugin-githuboss/issues
-  displayName: "plugin-githuboss"
-  description: "plugin-githuboss - Halo 插件"
+  repo: https://github.com/guicaiyue/plugin-githuboss
+  issues: https://github.com/guicaiyue/plugin-githuboss/issues
+  displayName: "Github附件插件"
+  description: "使用Github存放附件的插件"
   license:
-    - name: "GPL-3.0"
-      url: "https://github.com/xirizhi/plugin-githuboss/blob/main/LICENSE"
+    - name: "MIT"
   settingName: "plugin-githuboss-settings"

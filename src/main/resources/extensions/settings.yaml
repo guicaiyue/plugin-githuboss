@@ -4,10 +4,8 @@ metadata:
   name: plugin-githuboss-settings
 spec:
   forms:
-    - group: health
-      label: 健康检查
+    - group: basic
+      label: 使用提示
       formSchema:
-        - $formkit: text
-          name: status
-          label: 状态
-          value: "未检查"
+        - $el: p
+          children: 请前往 “附件 - 存储策略” 添加策略

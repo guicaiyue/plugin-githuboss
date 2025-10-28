@@ -32,7 +32,7 @@ spec:
           options:
             - label: yyyyMMddHHmmss原文件名
               value: ""
-            - label: /MMddHHmmss原文件名
+            - label: yyyy/MMddHHmmss原文件名
               value: "yyyy"
             - label: yyyyMM/ddHHmmss原文件名
               value: "yyyyMM"

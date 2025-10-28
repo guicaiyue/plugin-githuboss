@@ -5,7 +5,23 @@ metadata:
 spec:
   forms:
     - group: basic
-      label: 使用提示
+      label: 基本设置
       formSchema:
+        - $formkit: radio
+          name: jsdelivr
+          label: github的jsdelivr访问前缀
+          value: gcore.jsdelivr.net
+          placeholder: 自行所在地哪个 jsdelivr 节点快
+          options:
+            - label: gcore.jsdelivr.net
+              value: gcore.jsdelivr.net
+            - label: cdn.jsdelivr.net
+              value: cdn.jsdelivr.net
+            - label: fastly.jsdelivr.net
+              value: fastly.jsdelivr.net
+            - label: originfastly.jsdelivr.net
+              value: originfastly.jsdelivr.net
+            - label: quantil.jsdelivr.net
+              value: quantil.jsdelivr.net
         - $el: p
           children: 请前往 “附件 - 存储策略” 添加策略

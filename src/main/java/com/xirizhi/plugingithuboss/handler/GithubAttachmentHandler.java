@@ -92,8 +92,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     String filePath = pathBuild.filePath();
                     String sha = gitHubService.uploadContent(settings, filePath, bytes,
                             "Upload via Halo AttachmentHandler");
-                    String cdnUrl = gitHubService.buildCdnUrl(settings, filePath);
-                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}, cdnUrl: {}", owner, repoName, owner + "/" + repoName, filePath, sha, cdnUrl);
+                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}", owner, repoName, owner + "/" + repoName, filePath, sha);
                     Attachment attachment = buildAttachment(filePath, sha, (long) bytes.length, policy);
                     return attachment;
                 }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()))
@@ -222,9 +221,8 @@ public class GithubAttachmentHandler implements AttachmentHandler {
 
             var settingJson = configMap.getData().getOrDefault("default", "{}");
             GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-           
-            String cdn = gitHubService.buildCdnUrl(settings, path);
-            return Mono.just(URI.create(cdn));
+            
+            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
         }
@@ -239,8 +237,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             var settingJson = configMap.getData().getOrDefault("default", "{}");
             GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
                 
-            String cdn = gitHubService.buildCdnUrl(settings, path);
-            return Mono.just(URI.create(cdn));
+            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
         }

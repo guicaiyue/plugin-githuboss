@@ -12,11 +12,12 @@ spec:
     name: xirizhi
     website: https://xirizhi.cn
   logo: logo.jpg
+  settingName: plugin-githuboss-settings
+  configMapName: plugin-githuboss-configMap
   homepage: https://github.com/xirizhi/plugin-githuboss#readme
   repo: https://github.com/guicaiyue/plugin-githuboss
   issues: https://github.com/guicaiyue/plugin-githuboss/issues
   displayName: "Github附件插件"
   description: "使用Github存放附件的插件"
   license:
-    - name: "MIT"
-  settingName: "plugin-githuboss-settings"
+    - name: "GPL-3.0"

@@ -1,6 +1,15 @@
 package com.xirizhi.plugingithuboss.service;
 
+import com.xirizhi.plugingithuboss.config.Constant;
+import com.xirizhi.plugingithuboss.extension.GitHubThemeSettings;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
+import com.xirizhi.plugingithuboss.extension.theme.GitHubBasic;
+
+import reactor.core.publisher.Mono;
+import run.halo.app.extension.ConfigMap;
+import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.infra.utils.JsonUtils;
+
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -16,6 +25,13 @@ import java.util.Base64;
  */
 @Service
 public class GitHubService {
+
+
+    private final ReactiveExtensionClient client;
+
+    public GitHubService(ReactiveExtensionClient client) {
+        this.client = client;
+    }
 
     /**
      * 上传文件到 GitHub 仓库，返回内容 sha。
@@ -93,10 +109,18 @@ public class GitHubService {
      * @param path 相对路径
      * @return 可直接访问的 CDN URL
      */
-    public String buildCdnUrl(GithubOssPolicySettings settings, String path) {
-        String branch = settings.getBranch() == null ? "main" : settings.getBranch();
-        String base = "https://cdn.jsdelivr.net";
-        return String.format("%s/gh/%s/%s@%s/%s", base, settings.getOwner(), settings.getRepoName(), branch, path);
+    public Mono<String> buildCdnUrl(GithubOssPolicySettings settings, String path) {
+        return client.fetch(ConfigMap.class, Constant.PLUGIN_GITHUBOSS_CONFIGMAP)
+                    .map(ConfigMap::getData)
+                    .map(data -> {
+                        String basicJson = data.get(GitHubThemeSettings.GitHub_BASIC);
+                        return JsonUtils.jsonToObject(basicJson, GitHubBasic.class).getJsdelivr();
+                    })
+                    .defaultIfEmpty("gcore.jsdelivr.net")
+                    .map(jsdelivr -> {
+                        String branch = settings.getBranch() == null ? "main" : settings.getBranch();
+                        return String.format("https://%s/gh/%s/%s@%s/%s", jsdelivr, settings.getOwner(), settings.getRepoName(), branch, path); 
+                    });
     }
 
     /**

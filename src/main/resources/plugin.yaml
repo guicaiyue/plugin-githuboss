@@ -4,7 +4,7 @@ apiVersion: plugin.halo.run/v1alpha1
 kind: Plugin
 metadata:
   # The name defines how the plugin is invoked, A unique name
-  name: plugin-githuboss
+  name: PluginGitHubOSS
 spec:
   enabled: true
   requires: ">=2.21.0"
@@ -12,8 +12,8 @@ spec:
     name: xirizhi
     website: https://xirizhi.cn
   logo: logo.jpg
-  settingName: plugin-githuboss-settings
-  configMapName: plugin-githuboss-configMap
+  settingName: githuboss-settings
+  configMapName: githuboss-configMap
   homepage: https://github.com/xirizhi/plugin-githuboss#readme
   repo: https://github.com/guicaiyue/plugin-githuboss
   issues: https://github.com/guicaiyue/plugin-githuboss/issues

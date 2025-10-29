@@ -66,7 +66,7 @@ haloPlugin {
       // extensionApis 名称可以替换为其他名称，但需要与 groupedApiMappings 中的名称一致
       extensionApis {
         // 分组显示名称，避免与其他分组重名建议替换 {your-plugin-name} 为插件名称
-        displayName = 'Extension API for plugin-githuboss'
+        displayName = 'Extension API for PluginGitHubOSS'
         // 分组的 API 规则用于匹配插件项目中的 API 将其划分到此分组，它是一个 Ant 风格的路径匹配规则可以写多个
         pathsToMatch = ['/apis/githubOs.halo.run/v1alpha1/**']
       }

@@ -5,5 +5,5 @@ public class Constant {
     public static final String ANNOTATION_UNLINKED = "unLinked";
 
     //主题配置metadata.name
-    public static final String PLUGIN_GITHUBOSS_CONFIGMAP = "plugin-githuboss-configMap"; 
+    public static final String PLUGIN_GITHUBOSS_CONFIGMAP = "githuboss-configMap"; 
 }

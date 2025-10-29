@@ -1,12 +1,22 @@
 apiVersion: v1alpha1
 kind: Setting
 metadata:
-  name: plugin-githuboss-settings
+  name: githuboss-settings
 spec:
   forms:
     - group: basic
       label: 基本设置
       formSchema:
+        - $formkit: radio
+          name: enableOptimization
+          label: 前端访问优化（自动选择最快 jsdelivr）
+          value: true
+          placeholder: 检测用户访问位置，自动选择最快 jsdelivr 节点
+          options:
+            - label: 开启
+              value: true
+            - label: 关闭
+              value: false
         - $formkit: radio
           name: jsdelivr
           label: github的jsdelivr访问前缀

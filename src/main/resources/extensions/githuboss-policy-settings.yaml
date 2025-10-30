@@ -1,0 +1,50 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: githuboss-policy-settings
+spec:
+  forms:
+    - group: default
+      formSchema:
+        - $formkit: text
+          name: owner
+          label: 账户名
+          validation: required
+        - $formkit: text
+          name: repoName
+          label: 仓库名称
+          validation: required
+        - $formkit: text
+          name: path
+          label: 上传目录
+          placeholder: 如不填写，则默认上传到根目录
+        - $formkit: text
+          name: branch
+          label: 分支
+          value: master
+          placeholder: 仓库分支
+          validation: required
+        - $formkit: radio
+          name: namePrefix
+          label: 文件名处理
+          value: ""
+          placeholder: 默认文件重命名yyyyMMddHHmmss原文件名,若选中[月度文件夹],则文件名yyyyMM/ddHHmmss原文件名,若选中[日度文件夹],则文件名yyyyMMdd/ddHHmmss
+          options:
+            - label: yyyyMMddHHmmss原文件名
+              value: ""
+            - label: yyyy/MMddHHmmss原文件名
+              value: "yyyy"
+            - label: yyyyMM/ddHHmmss原文件名
+              value: "yyyyMM"
+            - label: yyyyMMdd/ddHHmmss原文件名  
+              value: "yyyyMMdd"
+        - $formkit: password
+          name: token
+          label: 凭据
+          validation: required
+        - $formkit: number
+          name: minSizeMB
+          label: 上传文件最低大小 (MB)
+          placeholder: 默认 50 MB
+          value: 50
+          validation: required

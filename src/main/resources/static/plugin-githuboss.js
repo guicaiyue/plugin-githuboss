@@ -52,6 +52,7 @@
         const domainSpeeds = await Promise.all(domains.map((domain) => testDomainSpeed(domain)));
         const minSpeed = Math.min(...domainSpeeds);
         const index = domainSpeeds.indexOf(minSpeed);
+        console.log(`本次 github 访问测试最快的域名是 ${domains[index]}，耗时 ${minSpeed}ms`);
         return domains[index];
     };
 

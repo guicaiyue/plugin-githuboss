@@ -1,58 +1,92 @@
 plugins {
     id 'java'
-    id "com.github.node-gradle.node" version "5.0.0"
-    id "io.freefair.lombok" version "8.0.1"
-    id "run.halo.plugin.devtools" version "0.0.7"
+    id "io.freefair.lombok" version "8.13"
+    id "run.halo.plugin.devtools" version "0.6.1"
 }
 
-group 'run.halo.githuboss'
-sourceCompatibility = JavaVersion.VERSION_17
-compileJava.options.encoding = 'UTF-8'
-compileTestJava.options.encoding = 'UTF-8'
+group 'com.xirizhi.plugingithuboss'
 
 repositories {
     mavenCentral()
-    maven { url 'https://s01.oss.sonatype.org/content/repositories/releases' }
-    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/' }
-    maven { url 'https://repo.spring.io/milestone' }
 }
 
 dependencies {
-    implementation platform('run.halo.tools.platform:plugin:2.11.0-SNAPSHOT')
+    implementation platform('run.halo.tools.platform:plugin:2.21.0')
     compileOnly 'run.halo.app:api'
 
     testImplementation 'run.halo.app:api'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    implementation 'cn.hutool:hutool-json:5.8.26'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
+    options.release = 21
 }
 
-node {
-    nodeProjectDir = file("${project.projectDir}/ui")
+tasks.register('processUiResources', Copy) {
+    from project(':ui').layout.buildDirectory.dir('dist')
+    into layout.buildDirectory.dir('resources/main/console')
+    dependsOn project(':ui').tasks.named('assemble')
+    shouldRunAfter tasks.named('processResources')
 }
 
-task buildFrontend(type: PnpmTask) {
-    args = ['build']
-}
-
-build {
-    // build frontend before build
-    tasks.getByName('compileJava').dependsOn('buildFrontend')
+tasks.named('classes') {
+    dependsOn tasks.named('processUiResources')
 }
 
 halo {
-    version = '2.13'
-    superAdminUsername = 'admin'
-    superAdminPassword = 'admin'
-    externalUrl = 'http://localhost:8098'
-    port = 8098
-    debug = true
-    debugPort = 5005
+    version = '2.21'
+}
+
+
+haloPlugin {
+  watchDomains {
+    // consoleSource 为自定义的名称，可以随意取
+    consoleSource {
+      // 监听 console/src/ 目录下的文件变化
+      files files('ui/src/')
+    }
+  }
+  openApi {
+    // outputDir = file("$rootDir/api-docs/openapi/v3_0") // 指定 OpenAPI 文档的输出目录默认输出到 build 目录下，不建议修改，除非需要提交到代码仓库
+    groupingRules {
+      // 定义 API 分组规则，用于为插件项目中的 APIs 分组然后只对此分组生成 API 客户端代码
+      // 定义了一个名为 extensionApis 的分组，task 会通过 /v3/api-docs/extensionApis 访问到 api docs 然后生成 API 客户端代码
+      // extensionApis 名称可以替换为其他名称，但需要与 groupedApiMappings 中的名称一致
+      extensionApis {
+        // 分组显示名称，避免与其他分组重名建议替换 {your-plugin-name} 为插件名称
+        displayName = 'Extension API for PluginGitHubOSS'
+        // 分组的 API 规则用于匹配插件项目中的 API 将其划分到此分组，它是一个 Ant 风格的路径匹配规则可以写多个
+        pathsToMatch = ['/apis/githubOs.halo.run/v1alpha1/**']
+      }
+    }
+    groupedApiMappings = [
+      // 这里为固定写法，照搬即可，除非是 groupingRules 中 extensionApis 的名字修改了
+      '/v3/api-docs/extensionApis': 'extensionApis.json'
+    ]
+    generator {
+       // 指定 API 客户端代码的输出目录如 console 或 ui
+      outputDir = file("${projectDir}/ui/src/api/generated")
+
+      // 定制生成，以下是默认配置可以不需要添加到 build.gradle 中
+      additionalProperties = [
+        useES6: true,
+        useSingleRequestParameter: true,
+        withSeparateModelsAndApi: true,
+        apiPackage: "api",
+        modelPackage: "models"
+      ]
+    }
+  }
 }

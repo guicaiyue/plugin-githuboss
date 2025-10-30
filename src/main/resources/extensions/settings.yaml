@@ -7,32 +7,31 @@ spec:
     - group: basic
       label: 基本设置
       formSchema:
-        - $formkit: text
-          help: 更新 Github 时需要的邮箱账号
-          label: 邮箱账号
-          name: email
-          validation: required|email
-        - $formkit: text
-          help: 更新 Github 时需要的用户名
-          label: 用户账号
-          name: name
-          validation: required
-        - $formkit: number
-          help: 多文件上传时最大并行数,请考虑带宽
-          label: 上传并行数
-          name: updateMax
-          value: 3
-          validation: required
-    - group: article
-      label: 文章配置
-      formSchema:
         - $formkit: radio
-          name: enable
-          label: 文章内图片 jsdelivr 加速优化
+          name: enableOptimization
+          label: 前端访问优化（自动选择最快 jsdelivr）
           value: true
-          validation: required
+          placeholder: 检测用户访问位置，自动选择最快 jsdelivr 节点
           options:
             - label: 开启
               value: true
             - label: 关闭
               value: false
+        - $formkit: radio
+          name: jsdelivr
+          label: github的jsdelivr访问前缀
+          value: gcore.jsdelivr.net
+          placeholder: 自行所在地哪个 jsdelivr 节点快
+          options:
+            - label: gcore.jsdelivr.net
+              value: gcore.jsdelivr.net
+            - label: cdn.jsdelivr.net
+              value: cdn.jsdelivr.net
+            - label: fastly.jsdelivr.net
+              value: fastly.jsdelivr.net
+            - label: originfastly.jsdelivr.net
+              value: originfastly.jsdelivr.net
+            - label: quantil.jsdelivr.net
+              value: quantil.jsdelivr.net
+        - $el: p
+          children: 请前往 “附件 - 存储策略” 添加策略

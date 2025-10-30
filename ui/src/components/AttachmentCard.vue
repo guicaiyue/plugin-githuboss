@@ -7,7 +7,23 @@
         :checked="selected"
         @change="$emit('toggle-select')"
       />
-      <img v-if="isImage && !isDirectory" :src="imageSrc" alt="" class="w-full h-auto object-cover cursor-zoom-in" @click="openPreview" />
+      <div v-if="isImage && !isDirectory" class="image-wrapper" :style="wrapperStyle">
+        <img
+          :src="imageSrc"
+          :alt="title || ''"
+          loading="lazy"
+          @load="onImgLoad"
+          @error="onImgError"
+          :style="{
+            width: '100%',
+            height: 'auto',
+            objectFit: 'cover',
+            cursor: 'zoom-in'
+          }"
+          :class="{ 'is-loaded': imgLoaded }"
+          @click="openPreview"
+        />
+      </div>
       <div v-else-if="isDirectory" class="flex h-32 items-center justify-center text-yellow-500 cursor-pointer" @click="$emit('open')">
         <svg class="h-12 w-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z" />
@@ -56,7 +72,6 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { VTag, VButton } from '@halo-dev/components'
 
 const props = defineProps<{
   title: string
@@ -86,4 +101,47 @@ const closePreview = () => {
   isPreviewVisible.value = false
 }
 const hoverButton = ref(false)
+
+// 图片加载占位与懒加载处理
+const imgLoaded = ref(false)
+const onImgLoad = () => {
+  imgLoaded.value = true
+}
+const onImgError = () => {
+  imgLoaded.value = false
+}
+const wrapperStyle = computed(() => ({
+  backgroundImage: imgLoaded.value ? 'none' : `url('/plugins/PluginGitHubOSS/assets/static/loading.gif?version=1.0.0')`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: '50% 50%',
+  backgroundSize: '32px 32px',
+  minHeight: '160px'
+}))
+const imgStyle = {
+  width: '100%',
+  height: 'auto',
+  objectFit: 'cover',
+  cursor: 'zoom-in'
+}
 </script>
+
+<style scoped>
+.image-wrapper {
+  position: relative;
+  overflow: hidden;
+  background-color: #f5f5f5;
+  /* CSS 优先的懒渲染优化，减少初次绘制成本 */
+  content-visibility: auto;
+  contain-intrinsic-size: 160px;
+}
+.image-wrapper img {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+.image-wrapper img.is-loaded {
+  opacity: 1;
+}
+</style>

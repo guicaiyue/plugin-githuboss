@@ -294,6 +294,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
      * minSizeMB 为 null 或 <=0 时直接回传 bytes。
      */
     private Mono<byte[]> validateMinSize(byte[] bytes, Integer minSizeMB) {
+        log.info("校验文件最小大小，文件大小: {}，最小限制: {}MB", bytes.length, minSizeMB);
         if (minSizeMB == null || minSizeMB <= 0) {
             return Mono.just(bytes);
         }
@@ -301,8 +302,8 @@ public class GithubAttachmentHandler implements AttachmentHandler {
             return Mono.error(new IllegalArgumentException("文件内容为空"));
         }
         long minBytes = minSizeMB * 1024L * 1024L;
-        if ((long) bytes.length < minBytes) {
-            return Mono.error(new IllegalArgumentException("文件大小低于最小限制: " + minSizeMB + "MB"));
+        if ((long) bytes.length > minBytes) {
+            return Mono.error(new IllegalArgumentException("文件大小高于最大限制: " + minSizeMB + "MB"));
         }
         return Mono.just(bytes);
     }

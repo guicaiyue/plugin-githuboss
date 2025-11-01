@@ -35,10 +35,19 @@
     </div>
     <div class="px-3 py-2 flex items-center gap-2">
       <p class="text-sm text-gray-800 truncate" style="flex: 1 1 auto; min-width: 0;" :alt="title">{{ title }}</p>
+      <!--
+        为操作按钮设置最小宽度，确保能容纳4个中文字符（如“取消关联”），
+        避免当标题过长时按钮被压缩影响布局。使用 em 作为度量，中文字符通常≈1em。
+      -->
       <div
         v-if="!isDirectory"
         class="h-10 rounded-md flex items-center justify-center px-3 shrink-0"
-        :style="[ linked ? { backgroundColor: '#ef4444', color: '#ffffff' } : { backgroundColor: '#22c55e', color: '#ffffff' }, disabled ? { opacity: '0.6', cursor: 'not-allowed' } : { cursor: 'pointer' }, hoverButton && !disabled ? { opacity: '0.85' } : {} ]"
+        :style="[
+          { minWidth: '6em', whiteSpace: 'nowrap' },
+          linked ? { backgroundColor: '#ef4444', color: '#ffffff' } : { backgroundColor: '#22c55e', color: '#ffffff' },
+          disabled ? { opacity: '0.6', cursor: 'not-allowed' } : { cursor: 'pointer' },
+          hoverButton && !disabled ? { opacity: '0.85' } : {}
+        ]"
         @mouseenter="hoverButton = true"
         @mouseleave="hoverButton = false"
         @click="!disabled && (linked ? $emit('unlink') : $emit('link'))"

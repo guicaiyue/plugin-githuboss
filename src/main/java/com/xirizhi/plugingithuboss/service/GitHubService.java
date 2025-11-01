@@ -33,6 +33,14 @@ public class GitHubService {
         this.client = client;
     }
 
+    // 新增：按仓库+分支维度的公平锁，串行化提交避免 409 冲突
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock> REPO_LOCKS = new java.util.concurrent.ConcurrentHashMap<>();
+    private java.util.concurrent.locks.ReentrantLock lockFor(GithubOssPolicySettings settings) {
+        String branch = settings.getBranch() == null ? "main" : settings.getBranch();
+        String key = settings.getOwner() + "/" + settings.getRepoName() + "@" + branch;
+        return REPO_LOCKS.computeIfAbsent(key, k -> new java.util.concurrent.locks.ReentrantLock(true));
+    }
+
     /**
      * 上传文件到 GitHub 仓库，返回内容 sha。
      * @param spec 仓库配置 Spec
@@ -42,31 +50,45 @@ public class GitHubService {
      * @return 上传后返回的内容 SHA
      */
     public String uploadContent(GithubOssPolicySettings settings, String path, byte[] data, String message) throws Exception {
-        // 构造 GitHub Contents API URL
-        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
-        // 组装请求体（JSON），包含提交信息、分支（可选）与 Base64 编码内容
-        String body = "{" +
-                "\"message\":\"" + escapeJson(message) + "\"," +
-                (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
-                "\"content\":\"" + Base64.getEncoder().encodeToString(data) + "\"" +
-                "}";
-        // 构造 HTTP 请求（PUT 表示创建/更新内容）
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + settings.getToken())
-                .header("Accept", "application/vnd.github+json")
-                .header("Content-Type", "application/json")
-                .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build();
-        // 执行请求并获取响应
-        HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-            // 简单提取返回 JSON 中的 sha 字段（轻量实现，避免引入额外 JSON 依赖）
-            String sha = extractByKey(resp.body(), "\"sha\":\"", "\"");
-            return sha;
+        var lock = lockFor(settings);
+        boolean locked = false;
+        try {
+            lock.lockInterruptibly();
+            locked = true;
+
+            // 构造 GitHub Contents API URL
+            String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
+            // 组装请求体（JSON），包含提交信息、分支（可选）与 Base64 编码内容
+            String body = "{" +
+                    "\"message\":\"" + escapeJson(message) + "\"," +
+                    (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
+                    "\"content\":\"" + Base64.getEncoder().encodeToString(data) + "\"" +
+                    "}";
+            // 构造 HTTP 请求（PUT 表示创建/更新内容）
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + settings.getToken())
+                    .header("Accept", "application/vnd.github+json")
+                    .header("Content-Type", "application/json")
+                    .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                    .build();
+            // 执行请求并获取响应
+            HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                // 简单提取返回 JSON 中的 sha 字段（轻量实现，避免引入额外 JSON 依赖）
+                String sha = extractByKey(resp.body(), "\"sha\":\"", "\"");
+                return sha;
+            }
+            // 非 2xx 状态码视为失败，抛出异常以便上层捕获与审计记录
+            throw new RuntimeException("GitHub 上传失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("GitHub 上传过程被中断", ie);
+        } finally {
+            if (locked) {
+                lock.unlock();
+            }
         }
-        // 非 2xx 状态码视为失败，抛出异常以便上层捕获与审计记录
-        throw new RuntimeException("GitHub 上传失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
     }
 
     /**
@@ -77,29 +99,41 @@ public class GitHubService {
      * @param message 提交信息
      */
     public void deleteContent(GithubOssPolicySettings settings, String path, String sha, String message) throws Exception {
-        String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
-        String body = "{" +
-                "\"message\":\"" + escapeJson(message) + "\"," +
-                (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
-                "\"sha\":\"" + escapeJson(sha) + "\"" +
-                "}";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + settings.getToken())
-                .header("Accept", "application/vnd.github+json")
-                .header("Content-Type", "application/json")
-                .method("DELETE", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build();
-        HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-            // 删除成功直接返回
-            return;
+        var lock = lockFor(settings);
+        boolean locked = false;
+        try {
+            lock.lockInterruptibly();
+            locked = true;
+
+            String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
+            String body = "{" +
+                    "\"message\":\"" + escapeJson(message) + "\"," +
+                    (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
+                    "\"sha\":\"" + escapeJson(sha) + "\"" +
+                    "}";
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + settings.getToken())
+                    .header("Accept", "application/vnd.github+json")
+                    .header("Content-Type", "application/json")
+                    .method("DELETE", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                    .build();
+            HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                return;
+            }
+            if (resp.statusCode() == 404) {
+                return;
+            }
+            throw new RuntimeException("GitHub 删除失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("GitHub 删除过程被中断", ie);
+        } finally {
+            if (locked) {
+                lock.unlock();
+            }
         }
-        if (resp.statusCode() == 404) {
-            // 404也说明删除成功直接返回
-            return;
-        }
-        throw new RuntimeException("GitHub 删除失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
     }
 
     /**

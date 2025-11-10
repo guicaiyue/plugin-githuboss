@@ -34,6 +34,8 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * GitHub OSS 附件处理器：将上传/删除能力挂接到 Halo 的附件扩展点。
@@ -159,11 +161,11 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     ? (baseOriginal + "-" + timePrefix + (ext != null ? ("." + ext) : ""))
                     : (timePrefix + (ext != null ? ("." + ext) : ""));
 
-            final String filePath = new StringBuilder(settings.getPath())
-                    .append(folderDir.isBlank() ? "" : ("/" + folderDir))
-                    .append("/")
-                    .append(filename)
-                    .toString();
+            final String filePath = Stream.of(settings.getPath(), folderDir, filename)
+                    .filter(s -> s != null && !s.isBlank())
+                    .map(s -> s.replaceAll("^/+|/+$", ""))
+                    .filter(s -> !s.isBlank())
+                    .collect(Collectors.joining("/"));
 
             synchronized (RESERVED_PATHS) {
                 if (!RESERVED_PATHS.contains(filePath)) {

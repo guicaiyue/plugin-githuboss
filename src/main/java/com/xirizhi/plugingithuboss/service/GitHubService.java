@@ -58,6 +58,7 @@ public class GitHubService {
 
             // 构造 GitHub Contents API URL
             String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
+            
             // 组装请求体（JSON），包含提交信息、分支（可选）与 Base64 编码内容
             String body = "{" +
                     "\"message\":\"" + escapeJson(message) + "\"," +

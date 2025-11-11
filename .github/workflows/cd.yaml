@@ -14,5 +14,5 @@ jobs:
       pnpm-version: 9
       node-version: 22
       java-version: 21
-      skip-appstore-release: true
+      skip-appstore-release: false
       ui-path: "ui"

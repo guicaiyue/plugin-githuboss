@@ -8,6 +8,8 @@ on:
 jobs:
   cd:
     uses: halo-sigs/reusable-workflows/.github/workflows/plugin-cd.yaml@v3
+    secrets:
+      halo-pat: ${{ secrets.HALO_PAT }}
     permissions:
       contents: write
     with:
@@ -16,3 +18,4 @@ jobs:
       java-version: 21
       skip-appstore-release: false
       ui-path: "ui"
+      app-id: app-lc0cubuk

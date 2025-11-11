@@ -26,6 +26,7 @@ import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.infra.utils.JsonUtils;
 
 import java.net.URI;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -161,12 +162,11 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     ? (baseOriginal + "-" + timePrefix + (ext != null ? ("." + ext) : ""))
                     : (timePrefix + (ext != null ? ("." + ext) : ""));
 
-            final String filePath = Stream.of(settings.getPath(), folderDir, filename)
-                    .filter(s -> s != null && !s.isBlank())
-                    .map(s -> s.replaceAll("^/+|/+$", ""))
-                    .filter(s -> !s.isBlank())
-                    .collect(Collectors.joining("/"));
-
+            String tempFilePath = Paths.get(settings.getPath().trim(),folderDir.trim(),filename)
+                    .normalize()
+                    .toString();
+            final String filePath = tempFilePath.startsWith("/") ? tempFilePath.substring(1) : tempFilePath;
+            System.out.println("ssssssssssddd"+filePath);
             synchronized (RESERVED_PATHS) {
                 if (!RESERVED_PATHS.contains(filePath)) {
                     RESERVED_PATHS.add(filePath);

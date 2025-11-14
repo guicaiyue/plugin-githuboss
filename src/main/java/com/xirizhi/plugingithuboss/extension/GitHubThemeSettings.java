@@ -4,4 +4,6 @@ package com.xirizhi.plugingithuboss.extension;
 public class GitHubThemeSettings {
     // 基础配置
     public static final String GitHub_BASIC = "basic";
+    // 网络配置
+    public static final String GitHub_NETWORK = "network";
 }

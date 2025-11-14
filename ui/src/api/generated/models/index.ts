@@ -4,6 +4,8 @@ export * from './json-patch-inner';
 export * from './link-req-object';
 export * from './link-resp-object';
 export * from './move-operation';
+export * from './network-config';
+export * from './network-test-item';
 export * from './remove-operation';
 export * from './replace-operation';
 export * from './test-operation';

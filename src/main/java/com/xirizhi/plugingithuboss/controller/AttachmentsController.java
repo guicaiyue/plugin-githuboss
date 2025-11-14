@@ -1,6 +1,8 @@
 package com.xirizhi.plugingithuboss.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.xirizhi.plugingithuboss.service.GitHubService;
+import com.xirizhi.plugingithuboss.service.GitHubService.NetworkTestItem;
 import com.xirizhi.plugingithuboss.handler.GithubAttachmentHandler;
 
 import lombok.RequiredArgsConstructor;
@@ -25,7 +28,10 @@ import run.halo.app.extension.router.selector.FieldSelector;
 import run.halo.app.plugin.ApiVersion; // 确保已导入 ApiVersion 注解
 
 import com.xirizhi.plugingithuboss.config.Constant;
+import com.xirizhi.plugingithuboss.extension.GitHubThemeSettings;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
+import com.xirizhi.plugingithuboss.extension.theme.NetworkConfig;
+
 import run.halo.app.infra.utils.JsonUtils;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -116,7 +122,7 @@ public class AttachmentsController {
                     if (path != null && !path.isBlank()) {
                         settings.setPath(path);
                     }
-                    return Mono.fromCallable(() -> gitHubService.listDirectoryContents(settings, settings.getPath()));
+                    return gitHubService.listDirectoryContents(settings, settings.getPath());
                 })
                 .doOnError(error -> log.error("查询目录内容失败", error))
                 .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
@@ -231,5 +237,39 @@ public class AttachmentsController {
                         })
                         .then(Mono.fromSupplier(() -> new unlinkRespObject(delCount.get(), failCount.get(), firstErrorMsg.get())))
                 );
+    }
+
+    // 读取代理配置
+    @GetMapping("/attachments/proxy")
+    public Mono<NetworkConfig> getProxy() {
+        return gitHubService.getProxyConfig();
+    }
+
+    // 保存代理配置
+    @PostMapping("/attachments/proxy")
+    public Mono<NetworkConfig> saveProxy(@RequestBody NetworkConfig req) {
+        if (req == null) {
+            return Mono.error(new IllegalArgumentException("请求体不能为空"));
+        }
+        if (req.getTimeoutMs() == null || req.getTimeoutMs() <= 0) {
+            req.setTimeoutMs(10000);
+        }
+        return client.fetch(ConfigMap.class, Constant.PLUGIN_GITHUBOSS_CONFIGMAP)
+                .flatMap(cm -> {
+                    Map<String, String> data = cm.getData();
+                    if (data == null) data = new HashMap<>();
+                    data.put(GitHubThemeSettings.GitHub_NETWORK, JsonUtils.objectToJson(req));
+                    cm.setData(data);
+                    return client.update(cm).then(Mono.just(req));
+                });
+    }
+
+    // 连通性测试：对 github.com 与 api.github.com 进行 DNS 与 HTTP 探测
+    @GetMapping("/attachments/test")
+    public Mono<java.util.List<NetworkTestItem>> networkTest() {
+        Mono<NetworkTestItem> m1 = gitHubService.networkTest("github.com");
+        Mono<NetworkTestItem> m2 = gitHubService.networkTest("api.github.com");
+        return Mono.zip(m1, m2)
+                .map(t -> java.util.List.of(t.getT1(), t.getT2()));
     }
 }

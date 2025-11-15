@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.xirizhi.plugingithuboss.service.GitHubService;
 import com.xirizhi.plugingithuboss.service.GitHubService.NetworkTestItem;
@@ -69,7 +71,7 @@ public class AttachmentsController {
                     return path;
                 })
                 .doOnError(error -> log.error("查询策略根目录失败 policyName={}", policyName, error))
-                .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
+                .onErrorMap(e -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,String.valueOf(e.getMessage())));
     }
 
 
@@ -84,7 +86,6 @@ public class AttachmentsController {
         listOptions.setFieldSelector(FieldSelector.of(QueryFactory.equal("spec.policyName", policyName)));
         return client.listAll(Attachment.class, listOptions, Sort.unsorted())
                 .filter(attachment -> {
-                    log.info("attachment={}", JsonUtils.objectToJson(attachment));
                     var annotations = attachment.getMetadata().getAnnotations();
                     return annotations != null
                             && annotations.get("sha") != null
@@ -95,7 +96,7 @@ public class AttachmentsController {
                         att -> true
                 )
                 .doOnError(error -> log.error("查询策略附件列表失败 policyName={}", policyName, error))
-                .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
+                .onErrorMap(e -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,String.valueOf(e.getMessage())));
     }
 
     /**
@@ -125,7 +126,7 @@ public class AttachmentsController {
                     return gitHubService.listDirectoryContents(settings, settings.getPath());
                 })
                 .doOnError(error -> log.error("查询目录内容失败", error))
-                .onErrorMap(e -> new RuntimeException("查询失败: " + e.getMessage(), e));
+                .onErrorMap(e -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,String.valueOf(e.getMessage())));
     }
 
     // github 文件关联 halo 上的附件

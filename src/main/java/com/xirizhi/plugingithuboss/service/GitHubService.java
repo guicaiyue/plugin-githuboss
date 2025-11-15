@@ -26,15 +26,15 @@ import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GitHub API 封装服务：负责与 GitHub Contents API 交互。
  * 注意：PAT 需至少具备 repo 的 Contents 权限。
  */
+@Slf4j
 @Service
 public class GitHubService {
 
@@ -271,6 +271,9 @@ public class GitHubService {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     return response.body();
+                }
+                if (response.statusCode() == 404) {
+                    throw new IllegalStateException("指定仓库"+p+"目录不存在，github响应：" + response.body());
                 }
                 throw new IllegalStateException("目录内容查询失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
             }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()));

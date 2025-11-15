@@ -21,11 +21,11 @@ public class PluginGithubossPlugin extends BasePlugin {
     @Override
     public void start() {
         // 注册自定义模型，生成 CRUD APIs
-        log.info("插件启动成功！已注册自定义模型：RepositoryConfig, AttachmentRecord, SyncSnapshot, AuditLog");
+        log.info("githubOss 插件启动成功！");
     }
 
     @Override
     public void stop() {
-        log.info("插件停止！");
+        log.info("githubOss 插件停止！");
     }
 }

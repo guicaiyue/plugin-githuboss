@@ -4,8 +4,10 @@ import com.xirizhi.plugingithuboss.config.Constant;
 import com.xirizhi.plugingithuboss.extension.GitHubThemeSettings;
 import com.xirizhi.plugingithuboss.extension.GithubOssPolicySettings;
 import com.xirizhi.plugingithuboss.extension.theme.GitHubBasic;
+import com.xirizhi.plugingithuboss.extension.theme.NetworkConfig;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.infra.utils.JsonUtils;
@@ -13,16 +15,26 @@ import run.halo.app.infra.utils.JsonUtils;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Arrays;
+import java.util.List;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GitHub API 封装服务：负责与 GitHub Contents API 交互。
  * 注意：PAT 需至少具备 repo 的 Contents 权限。
  */
+@Slf4j
 @Service
 public class GitHubService {
 
@@ -49,47 +61,44 @@ public class GitHubService {
      * @param message 提交信息（commit message）
      * @return 上传后返回的内容 SHA
      */
-    public String uploadContent(GithubOssPolicySettings settings, String path, byte[] data, String message) throws Exception {
-        var lock = lockFor(settings);
-        boolean locked = false;
-        try {
-            lock.lockInterruptibly();
-            locked = true;
+    public Mono<String> uploadContent(GithubOssPolicySettings settings, String path, byte[] data, String message) {
+        return getProxyConfig().flatMap(cfg -> Mono.fromCallable(() -> {
+            var lock = lockFor(settings);
+            boolean locked = false;
+            try {
+                lock.lockInterruptibly();
+                locked = true;
 
-            // 构造 GitHub Contents API URL
-            String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
-            
-            // 组装请求体（JSON），包含提交信息、分支（可选）与 Base64 编码内容
-            String body = "{" +
-                    "\"message\":\"" + escapeJson(message) + "\"," +
-                    (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
-                    "\"content\":\"" + Base64.getEncoder().encodeToString(data) + "\"" +
-                    "}";
-            // 构造 HTTP 请求（PUT 表示创建/更新内容）
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Authorization", "Bearer " + settings.getToken())
-                    .header("Accept", "application/vnd.github+json")
-                    .header("Content-Type", "application/json")
-                    .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                    .build();
-            // 执行请求并获取响应
-            HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-                // 简单提取返回 JSON 中的 sha 字段（轻量实现，避免引入额外 JSON 依赖）
-                String sha = extractByKey(resp.body(), "\"sha\":\"", "\"");
-                return sha;
+                String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
+                String body = "{" +
+                        "\"message\":\"" + escapeJson(message) + "\"," +
+                        (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
+                        "\"content\":\"" + Base64.getEncoder().encodeToString(data) + "\"" +
+                        "}";
+                HttpClient client = buildBaseGitHubHttpClient(cfg);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Bearer " + settings.getToken())
+                        .header("Accept", "application/vnd.github+json")
+                        .header("Content-Type", "application/json")
+                        .timeout(java.time.Duration.ofMillis(cfg.getTimeoutMs()))
+                        .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                        .build();
+                HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                    String sha = extractByKey(resp.body(), "\"sha\":\"", "\"");
+                    return sha;
+                }
+                throw new RuntimeException("GitHub 上传失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(ie);
+            } finally {
+                if (locked) {
+                    lock.unlock();
+                }
             }
-            // 非 2xx 状态码视为失败，抛出异常以便上层捕获与审计记录
-            throw new RuntimeException("GitHub 上传失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("GitHub 上传过程被中断", ie);
-        } finally {
-            if (locked) {
-                lock.unlock();
-            }
-        }
+        }).subscribeOn(Schedulers.boundedElastic()));
     }
 
     /**
@@ -99,42 +108,46 @@ public class GitHubService {
      * @param sha 现有文件的内容 SHA（来自上传或查询）
      * @param message 提交信息
      */
-    public void deleteContent(GithubOssPolicySettings settings, String path, String sha, String message) throws Exception {
-        var lock = lockFor(settings);
-        boolean locked = false;
-        try {
-            lock.lockInterruptibly();
-            locked = true;
+    public Mono<Void> deleteContent(GithubOssPolicySettings settings, String path, String sha, String message) {
+        return getProxyConfig().flatMap(cfg -> reactor.core.publisher.Mono.fromCallable(() -> {
+            var lock = lockFor(settings);
+            boolean locked = false;
+            try {
+                lock.lockInterruptibly();
+                locked = true;
 
-            String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
-            String body = "{" +
-                    "\"message\":\"" + escapeJson(message) + "\"," +
-                    (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
-                    "\"sha\":\"" + escapeJson(sha) + "\"" +
-                    "}";
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Authorization", "Bearer " + settings.getToken())
-                    .header("Accept", "application/vnd.github+json")
-                    .header("Content-Type", "application/json")
-                    .method("DELETE", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                    .build();
-            HttpResponse<String> resp = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-                return;
+                String url = String.format("https://api.github.com/repos/%s/%s/contents/%s", settings.getOwner(), settings.getRepoName(), path);
+                String body = "{" +
+                        "\"message\":\"" + escapeJson(message) + "\"," +
+                        (settings.getBranch() != null ? "\"branch\":\"" + escapeJson(settings.getBranch()) + "\"," : "") +
+                        "\"sha\":\"" + escapeJson(sha) + "\"" +
+                        "}";
+                HttpClient client = buildBaseGitHubHttpClient(cfg);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Bearer " + settings.getToken())
+                        .header("Accept", "application/vnd.github+json")
+                        .header("Content-Type", "application/json")
+                        .timeout(java.time.Duration.ofMillis(cfg.getTimeoutMs()))
+                        .method("DELETE", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                        .build();
+                HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                    return null;
+                }
+                if (resp.statusCode() == 404) {
+                    return null;
+                }
+                throw new RuntimeException("GitHub 删除失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("GitHub 删除过程被中断", ie);
+            } finally {
+                if (locked) {
+                    lock.unlock();
+                }
             }
-            if (resp.statusCode() == 404) {
-                return;
-            }
-            throw new RuntimeException("GitHub 删除失败，状态码=" + resp.statusCode() + ", 响应=" + resp.body());
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("GitHub 删除过程被中断", ie);
-        } finally {
-            if (locked) {
-                lock.unlock();
-            }
-        }
+        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()).then());
     }
 
     /**
@@ -156,6 +169,31 @@ public class GitHubService {
                         String branch = settings.getBranch() == null ? "main" : settings.getBranch();
                         return String.format("https://%s/gh/%s/%s@%s/%s", jsdelivr, settings.getOwner(), settings.getRepoName(), branch, path); 
                     });
+    }
+
+    /**
+     * 读取代理超时配置
+     */
+    public Mono<NetworkConfig> getProxyConfig() {
+        return client.fetch(ConfigMap.class, Constant.PLUGIN_GITHUBOSS_CONFIGMAP)
+                .map(cm -> {
+                    String json = cm.getData().get(GitHubThemeSettings.GitHub_NETWORK);
+                    if (json != null && !json.isBlank()) {
+                        return JsonUtils.jsonToObject(json, NetworkConfig.class);
+                    }
+                    NetworkConfig cfg = new NetworkConfig();
+                    cfg.setEnabled(Boolean.FALSE);
+                    cfg.setTimeoutMs(10000);
+                    cfg.setProxyPath("");
+                    return cfg;
+                })
+                .onErrorResume(e -> {
+                    NetworkConfig cfg = new NetworkConfig();
+                    cfg.setEnabled(Boolean.FALSE);
+                    cfg.setTimeoutMs(10000);
+                    cfg.setProxyPath("");
+                    return Mono.just(cfg);
+                });
     }
 
     /**
@@ -181,72 +219,160 @@ public class GitHubService {
      * 根据仓库路径获取文件的 SHA，用于删除操作。
      * 注意：GitHub Contents API 会返回 JSON，其中包含 sha 字段。
      */
-    public String fetchContentSha(GithubOssPolicySettings settings, String path) throws Exception {
-        // 构造请求 URL，例如：https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}
+    public Mono<String> fetchContentSha(GithubOssPolicySettings settings, String path) {
         String url = String.format("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
                 settings.getOwner(), settings.getRepoName(), path, settings.getBranch() == null ? "main" : settings.getBranch());
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + settings.getToken())
-                .header("Accept", "application/vnd.github+json")
-                .GET()
-                .build();
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            // 解析 JSON，提取 sha 字段（轻量级方式，避免引入额外依赖）
-            String body = response.body();
-            // 简单解析：查找 "sha":"..." 模式（注意：此处为简单实现，生产中建议使用 JSON 库）
-            int idx = body.indexOf("\"sha\":\"");
-            if (idx >= 0) {
-                int start = idx + "\"sha\":\"".length();
-                int end = body.indexOf('"', start);
-                if (end > start) {
-                    return body.substring(start, end);
+        return getProxyConfig()
+            .flatMap(cfg -> Mono.fromCallable(() -> {
+                HttpClient client = buildBaseGitHubHttpClient(cfg);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Bearer " + settings.getToken())
+                        .header("Accept", "application/vnd.github+json")
+                        .timeout(java.time.Duration.ofMillis(cfg.getTimeoutMs()))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    String body = response.body();
+                    int idx = body.indexOf("\"sha\":\"");
+                    if (idx >= 0) {
+                        int start = idx + "\"sha\":\"".length();
+                        int end = body.indexOf('"', start);
+                        if (end > start) {
+                            return body.substring(start, end);
+                        }
+                    }
+                    throw new IllegalStateException("未从 GitHub API 响应中解析到 sha 字段");
                 }
-            }
-            throw new IllegalStateException("未从 GitHub API 响应中解析到 sha 字段");
-        }
-        throw new IllegalStateException("获取内容 SHA 失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
+                throw new IllegalStateException("获取内容 SHA 失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
+            }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()));
     }
 
     /**
      * 根据仓库与路径查询目录内容，返回 GitHub API 的原始 JSON 字符串。
      * 若 path 为空则查询仓库根目录。
      */
-    public String listDirectoryContents(GithubOssPolicySettings settings, String path) throws Exception {
+    public Mono<String> listDirectoryContents(GithubOssPolicySettings settings, String path) {
         String p = (path == null || path.isBlank()) ? "" : path;
         String branch = settings.getBranch() == null ? "main" : settings.getBranch();
         String url = String.format("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
                 settings.getOwner(), settings.getRepoName(), p, branch);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + settings.getToken())
-                .header("Accept", "application/vnd.github+json")
-                .GET()
-                .build();
-        HttpResponse<String> response = HttpClient.newHttpClient()
-                .send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            return response.body();
-        }
-        throw new IllegalStateException("目录内容查询失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
+        return getProxyConfig()
+            .flatMap(cfg -> Mono.fromCallable(() -> {
+                HttpClient client = buildBaseGitHubHttpClient(cfg);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Bearer " + settings.getToken())
+                        .header("Accept", "application/vnd.github+json")
+                        .timeout(java.time.Duration.ofMillis(cfg.getTimeoutMs()))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    return response.body();
+                }
+                if (response.statusCode() == 404) {
+                    throw new IllegalStateException("指定仓库"+p+"目录不存在，github响应：" + response.body());
+                }
+                throw new IllegalStateException("目录内容查询失败，状态码：" + response.statusCode() + ", 响应：" + response.body());
+            }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()));
     }
 
-    public boolean checkConnectivity() {
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://github.com"))
-                    .timeout(java.time.Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-            HttpResponse<Void> resp = client.send(request, HttpResponse.BodyHandlers.discarding());
-            return resp.statusCode() >= 200 && resp.statusCode() < 400;
-        } catch (Exception e) {
-            return false;
+    public Mono<Boolean> checkConnectivity() {
+        return networkTest("api.github.com")
+            .map(com.xirizhi.plugingithuboss.service.GitHubService.NetworkTestItem::isSuccess)
+            .onErrorReturn(false);
+    }
+    /**
+     * 构建用于访问 GitHub API 的基础 HttpClient（应用代理与超时配置）
+     *
+     * 说明：
+     * - 从插件配置中读取网络设置（代理开关、代理地址、超时时间）
+     * - 代理地址支持 "http://host:port" 或 "socks://host:port" 两种格式
+     * - 若配置缺失或异常，则使用默认超时 10000ms 且不启用代理
+     */
+    public HttpClient buildBaseGitHubHttpClient(NetworkConfig cfg) {
+        HttpClient.Builder builder = HttpClient.newBuilder();
+        if (Boolean.TRUE.equals(cfg.getEnabled())) {
+            ProxySelector selector = buildProxySelector(cfg);
+            if (selector != null) builder.proxy(selector);
         }
+        return builder.build();
+    }
+
+    // 解析代理配置，仅支持 HTTP 代理，返回可应用于 HttpClient 的 ProxySelector
+    private static ProxySelector buildProxySelector(NetworkConfig cfg) {
+        String path = cfg.getProxyPath();
+        if (path == null || path.isBlank()) return null;
+        if (!path.startsWith("http://")) return null;
+        String noSchema = path.substring("http://".length());
+        int idx = noSchema.lastIndexOf(':');
+        if (idx <= 0 || idx >= noSchema.length() - 1) return null;
+        String host = noSchema.substring(0, idx);
+        int port;
+        try { port = Integer.parseInt(noSchema.substring(idx + 1)); } catch (Exception e) { return null; }
+        InetSocketAddress addr = new InetSocketAddress(host, port);
+        return new ProxySelector() {
+            @Override public java.util.List<Proxy> select(URI uri) { return java.util.List.of(new Proxy(Proxy.Type.HTTP, addr)); }
+            @Override public void connectFailed(URI uri, java.net.SocketAddress sa, java.io.IOException ioe) { }
+        };
+    }
+
+    @Data
+    public static class NetworkTestItem {
+        private String host;
+        private List<String> ips;
+        private String dnsError;
+        private int httpStatus;
+        private long httpLatencyMs;
+        private boolean success;
+        private String error;
+    }
+
+    /**
+     * 测试 GitHub 服务的连通性（DNS 查询与 HTTP HEAD 请求）
+     *
+     * 说明：
+     * - 对 github.com 与 api.github.com 进行并行查询
+     * - 记录 DNS 查询结果（IP 列表或错误信息）与 HTTP 响应状态码（2xx 为成功）
+     * - 超时时间默认 10000ms，可通过插件配置自定义
+     *
+     * @return 包含每个主机的测试结果（IP 列表、DNS 错误、HTTP 状态码、延迟、是否成功、错误信息）
+     */
+    public Mono<NetworkTestItem> networkTest(String host) {
+        return getProxyConfig().flatMap(cfg -> Mono.fromCallable(() -> {
+            NetworkTestItem item = new NetworkTestItem();
+            item.setHost(host);
+            try {
+                InetAddress[] addrs = InetAddress.getAllByName(host);
+                List<String> ips = Arrays.stream(addrs).map(a -> a.getHostAddress()).distinct().toList();
+                item.setIps(ips);
+            } catch (Exception e) {
+                item.setIps(List.of());
+                item.setDnsError(e.getMessage());
+            }
+            long start = System.nanoTime();
+            int status = -1;
+            String error = null;
+            try {
+                HttpClient http = buildBaseGitHubHttpClient(cfg);
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create("https://" + host + "/"))
+                        .timeout(Duration.ofMillis(cfg.getTimeoutMs()))
+                        .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                        .build();
+                HttpResponse<Void> resp = http.send(req, HttpResponse.BodyHandlers.discarding());
+                status = resp.statusCode();
+            } catch (Exception ex) {
+                error = ex.getMessage();
+            }
+            long costMs = (System.nanoTime() - start) / 1_000_000;
+            item.setHttpStatus(status);
+            item.setHttpLatencyMs(costMs);
+            item.setSuccess(status >= 200 && status < 400);
+            if (error != null) item.setError(error);
+            return item;
+        }).subscribeOn(Schedulers.boundedElastic()));
     }
 }

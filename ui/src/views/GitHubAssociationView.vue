@@ -52,6 +52,12 @@
               </VSpace>
             </div>
             <VSpace spacing="lg" class="flex-wrap">
+              <FilterDropdown
+                v-model="selectedJsdelivrDomain"
+                :label="'JSDelivr 节点'"
+                :items="jsdelivrDomainItems"
+                @update:modelValue="handleJsdelivrChange"
+              />
               <FilterCleanButton
                 v-if="selectedLinkedStatusItem != linkedStatusItems[0].value"
                 @click="selectedLinkedStatusItem = linkedStatusItems[0].value"
@@ -202,6 +208,7 @@ import {
 } from '@halo-dev/components'
 import { coreApiClient,axiosInstance  } from '@halo-dev/api-client'
 import { AttachmentsControllerApi } from '@/api'
+import type { GithubOssPolicySettings } from '@/api'
 import AttachmentCard from '@/components/AttachmentCard.vue'
 
 var attachmentsController = new AttachmentsControllerApi(
@@ -230,6 +237,7 @@ const linkTips = ref('')
 const linkFailedTable = ref<Array<{objectKey: string, message: string}>>([])
 const rootPath = ref('')
 const currentPath = ref('')
+const policySettings = ref<GithubOssPolicySettings | undefined>(undefined)
 const showFilesOnly = ref(false)
 const modalTitle = ref('关联结果')
 
@@ -255,6 +263,7 @@ const objectsBase = ref<Array<{
   key?: string
   displayName?: string
   downloadUrl?: string
+  sourceDownloadUrl?: string
   type?: string
   isLinked?: boolean
   path?: string
@@ -274,11 +283,21 @@ const customGroups = ref<Array<{
 }>>([])
 
 // 链接状态选项
-const linkedStatusItems = ref([
-  { label: '全部', value: 'all' },
-  { label: '已关联', value: 'linked' },
-  { label: '未关联', value: 'unlinked' }
-])
+  const linkedStatusItems = ref([
+    { label: '全部', value: 'all' },
+    { label: '已关联', value: 'linked' },
+    { label: '未关联', value: 'unlinked' }
+  ])
+
+  const selectedJsdelivrDomain = ref('')
+  const jsdelivrDomainItems = ref([
+    { label: '（空）', value: '' },
+    { label: 'gcore.jsdelivr.net', value: 'gcore.jsdelivr.net' },
+    { label: 'cdn.jsdelivr.net', value: 'cdn.jsdelivr.net' },
+    { label: 'fastly.jsdelivr.net', value: 'fastly.jsdelivr.net' },
+    { label: 'originfastly.jsdelivr.net', value: 'originfastly.jsdelivr.net' },
+    { label: 'quantil.jsdelivr.net', value: 'quantil.jsdelivr.net' }
+  ])
 
 // 计算属性
 const emptyTips = computed(() => {
@@ -417,7 +436,8 @@ const fetchS3Objects = async () => {
     let mapped = items.map((item: any) => ({
       key: item?.path || item?.name || '',
       displayName: item?.name || item?.path || '',
-      downloadUrl: item?.download_url || '',
+      sourceDownloadUrl: item?.download_url || '',
+      downloadUrl: buildDownloadUrl(item?.path || '', item?.download_url || ''),
       type: item?.type || '',
       path: item?.path || '',
       sha: item?.sha || '',
@@ -602,7 +622,8 @@ const handleFirstPage = () => {
   attachmentsController.getGitHubRootPath({
     policyName: policyName.value
   }).then((resp) => {
-    rootPath.value = resp.data || ''
+    policySettings.value = resp.data
+    rootPath.value = policySettings.value?.path || ''
     currentPath.value = rootPath.value
   })
 }
@@ -668,10 +689,41 @@ const applyFilters = () => {
     mapped = mapped.filter(obj => obj.type === 'file')
   }
 
+  mapped = mapped.map(obj => ({
+    ...obj,
+    downloadUrl: buildDownloadUrl(obj.path || '', obj.sourceDownloadUrl || obj.downloadUrl || '')
+  }))
+
   githubObjects.value = {
     objects: mapped,
     hasMore: false
   }
+}
+
+const buildDownloadUrl = (path: string, rawUrl: string): string => {
+  try {
+    const domain = selectedJsdelivrDomain.value
+    if (!domain) return rawUrl || ''
+    const s = policySettings.value
+    const owner = s?.owner || ''
+    const repo = s?.repoName || ''
+    const branch = s?.branch || 'main'
+    if (!owner || !repo || !path) return rawUrl || ''
+    return `https://${domain}/gh/${owner}/${repo}@${branch}/${path}`
+  } catch {
+    return rawUrl || ''
+  }
+}
+
+const handleJsdelivrChange = (val: string) => {
+  selectedJsdelivrDomain.value = val
+  applyFilters()
+  requestAnimationFrame(() => {
+    const active = document.activeElement as HTMLElement | null
+    if (active && active.closest('.v-popper__popper')) {
+      active.blur()
+    }
+  })
 }
 
 // 监听状态筛选变化时，仅做本地过滤

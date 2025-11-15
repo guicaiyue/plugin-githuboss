@@ -86,19 +86,17 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         // 文件大小检测优先于 GitHub 连通性
         return readFileBytes(filePart)
                 .flatMap(bytes -> validateMinSize(bytes, settings.getMinSizeMB()))
-                .flatMap(bytes -> Mono.fromSupplier(gitHubService::checkConnectivity)
-                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .flatMap(bytes -> gitHubService.checkConnectivity()
                         .flatMap(isConnected -> isConnected
                                 ? Mono.just(bytes)
                                 : Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"))))
-                .flatMap(bytes -> Mono.fromCallable(() -> {
-                    String filePath = pathBuild.filePath();
-                    String sha = gitHubService.uploadContent(settings, filePath, bytes,
-                            "Upload via Halo AttachmentHandler");
-                    log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}", owner, repoName, owner + "/" + repoName, filePath, sha);
-                    Attachment attachment = buildAttachment(filePath, sha, (long) bytes.length, policy);
-                    return attachment;
-                }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()))
+                .flatMap(bytes -> gitHubService.uploadContent(settings, pathBuild.filePath(), bytes,
+                            "Upload via Halo AttachmentHandler")
+                        .map(sha -> {
+                            log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}", owner, repoName, owner + "/" + repoName, pathBuild.filePath(), sha);
+                            Attachment attachment = buildAttachment(pathBuild.filePath(), sha, (long) bytes.length, policy);
+                            return attachment;
+                        }))
                 .doFinally(signalType -> {
                     synchronized (RESERVED_PATHS) {
                         RESERVED_PATHS.remove(pathBuild.filePath());
@@ -197,19 +195,20 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         final String sha = attachment.getMetadata().getAnnotations().get("sha");
         final String path = attachment.getMetadata().getAnnotations().remove("path");
         
-        return  Mono.fromCallable(() -> {
+        return Mono.defer(() -> {
                     log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", settings.getOwner(), settings.getRepoName(), settings.getOwner() + "/" + settings.getRepoName(), path);
-                    
-                    // 检查是否仅解除关联
+
                     boolean unLinked = Boolean.parseBoolean(attachment.getMetadata().getAnnotations().getOrDefault(Constant.ANNOTATION_UNLINKED, Boolean.FALSE.toString()));
                     if (unLinked) {
                         log.info("附件已解除关联，仅逻辑删除 attachment: {}", JsonUtils.objectToJson(attachment));
-                    }else{
-                        gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler");
-                        log.info("远程文件删除成功 attachment: {}", JsonUtils.objectToJson(attachment));
+                        return Mono.just(attachment);
+                    } else {
+                        return gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler")
+                                .then(Mono.fromCallable(() -> {
+                                    log.info("远程文件删除成功 attachment: {}", JsonUtils.objectToJson(attachment));
+                                    return attachment;
+                                }));
                     }
-                    
-                    return attachment;
                 })
                 .doOnError(error -> log.error("删除过程中发生错误", error))
                 .onErrorMap(GitHubExceptionHandler::map);

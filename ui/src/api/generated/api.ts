@@ -15,4 +15,5 @@
 
 
 export * from './api/attachments-controller-api';
+export * from './api/network-controller-api';
 

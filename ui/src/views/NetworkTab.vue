@@ -76,9 +76,9 @@
 import { ref, onMounted } from 'vue'
 import { VPageHeader, VCard, VButton } from '@halo-dev/components'
 import { axiosInstance } from '@halo-dev/api-client'
-import { AttachmentsControllerApi } from '@/api'
+import { NetworkControllerApi } from '@/api'
 import type { NetworkTestItem } from '@/api'
-var attachmentsController = new AttachmentsControllerApi(
+var networkControllerApi = new NetworkControllerApi(
   undefined,
   axiosInstance.defaults.baseURL,
   axiosInstance
@@ -94,7 +94,7 @@ const testing = ref(false)
 const results = ref<NetworkTestItem[]>([])
 
 const fetchProxy = async () => {
-  const { data } = await attachmentsController.getProxy()
+  const { data } = await networkControllerApi.getProxy()
   form.value.proxyPath = data?.proxyPath || ''
   form.value.enabled = !!data?.enabled
   form.value.timeoutMs = Number(data?.timeoutMs ?? 10000)
@@ -103,7 +103,7 @@ const fetchProxy = async () => {
 const saveProxy = async () => {
   saving.value = true
   try {
-    await attachmentsController.saveProxy({
+    await networkControllerApi.saveProxy({
       networkConfig: form.value
     })
   } finally {
@@ -114,7 +114,7 @@ const saveProxy = async () => {
 const runTest = async () => {
   testing.value = true
   try {
-    const { data } = await attachmentsController.networkTest()
+    const { data } = await networkControllerApi.networkTest()
     results.value = data
   } finally {
     testing.value = false

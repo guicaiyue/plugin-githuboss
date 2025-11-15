@@ -3,6 +3,7 @@
 .openapi-generator-ignore
 api.ts
 api/attachments-controller-api.ts
+api/network-controller-api.ts
 base.ts
 common.ts
 configuration.ts

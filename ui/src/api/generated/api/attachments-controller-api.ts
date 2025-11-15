@@ -90,7 +90,7 @@ export const AttachmentsControllerApiAxiosParamCreator = function (configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getProxy: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getProxy1: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/proxy`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -265,7 +265,7 @@ export const AttachmentsControllerApiAxiosParamCreator = function (configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        networkTest: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        networkTest1: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/test`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -303,9 +303,9 @@ export const AttachmentsControllerApiAxiosParamCreator = function (configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        saveProxy: async (networkConfig: NetworkConfig, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        saveProxy1: async (networkConfig: NetworkConfig, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'networkConfig' is not null or undefined
-            assertParamExists('saveProxy', 'networkConfig', networkConfig)
+            assertParamExists('saveProxy1', 'networkConfig', networkConfig)
             const localVarPath = `/apis/githubOs.halo.run/v1alpha1/attachments/proxy`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -410,10 +410,10 @@ export const AttachmentsControllerApiFp = function(configuration?: Configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getProxy(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<NetworkConfig>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getProxy(options);
+        async getProxy1(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<NetworkConfig>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getProxy1(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.getProxy']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.getProxy1']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -458,10 +458,10 @@ export const AttachmentsControllerApiFp = function(configuration?: Configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async networkTest(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<NetworkTestItem>>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.networkTest(options);
+        async networkTest1(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<NetworkTestItem>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.networkTest1(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.networkTest']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.networkTest1']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -470,10 +470,10 @@ export const AttachmentsControllerApiFp = function(configuration?: Configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async saveProxy(networkConfig: NetworkConfig, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<NetworkConfig>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.saveProxy(networkConfig, options);
+        async saveProxy1(networkConfig: NetworkConfig, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<NetworkConfig>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.saveProxy1(networkConfig, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.saveProxy']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.saveProxy1']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -512,8 +512,8 @@ export const AttachmentsControllerApiFactory = function (configuration?: Configu
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getProxy(options?: RawAxiosRequestConfig): AxiosPromise<NetworkConfig> {
-            return localVarFp.getProxy(options).then((request) => request(axios, basePath));
+        getProxy1(options?: RawAxiosRequestConfig): AxiosPromise<NetworkConfig> {
+            return localVarFp.getProxy1(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -547,17 +547,17 @@ export const AttachmentsControllerApiFactory = function (configuration?: Configu
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        networkTest(options?: RawAxiosRequestConfig): AxiosPromise<Array<NetworkTestItem>> {
-            return localVarFp.networkTest(options).then((request) => request(axios, basePath));
+        networkTest1(options?: RawAxiosRequestConfig): AxiosPromise<Array<NetworkTestItem>> {
+            return localVarFp.networkTest1(options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @param {AttachmentsControllerApiSaveProxyRequest} requestParameters Request parameters.
+         * @param {AttachmentsControllerApiSaveProxy1Request} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        saveProxy(requestParameters: AttachmentsControllerApiSaveProxyRequest, options?: RawAxiosRequestConfig): AxiosPromise<NetworkConfig> {
-            return localVarFp.saveProxy(requestParameters.networkConfig, options).then((request) => request(axios, basePath));
+        saveProxy1(requestParameters: AttachmentsControllerApiSaveProxy1Request, options?: RawAxiosRequestConfig): AxiosPromise<NetworkConfig> {
+            return localVarFp.saveProxy1(requestParameters.networkConfig, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -635,15 +635,15 @@ export interface AttachmentsControllerApiListGitHubHaloAttachmentsRequest {
 }
 
 /**
- * Request parameters for saveProxy operation in AttachmentsControllerApi.
+ * Request parameters for saveProxy1 operation in AttachmentsControllerApi.
  * @export
- * @interface AttachmentsControllerApiSaveProxyRequest
+ * @interface AttachmentsControllerApiSaveProxy1Request
  */
-export interface AttachmentsControllerApiSaveProxyRequest {
+export interface AttachmentsControllerApiSaveProxy1Request {
     /**
      * 
      * @type {NetworkConfig}
-     * @memberof AttachmentsControllerApiSaveProxy
+     * @memberof AttachmentsControllerApiSaveProxy1
      */
     readonly networkConfig: NetworkConfig
 }
@@ -686,8 +686,8 @@ export class AttachmentsControllerApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof AttachmentsControllerApi
      */
-    public getProxy(options?: RawAxiosRequestConfig) {
-        return AttachmentsControllerApiFp(this.configuration).getProxy(options).then((request) => request(this.axios, this.basePath));
+    public getProxy1(options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).getProxy1(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -729,19 +729,19 @@ export class AttachmentsControllerApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof AttachmentsControllerApi
      */
-    public networkTest(options?: RawAxiosRequestConfig) {
-        return AttachmentsControllerApiFp(this.configuration).networkTest(options).then((request) => request(this.axios, this.basePath));
+    public networkTest1(options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).networkTest1(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @param {AttachmentsControllerApiSaveProxyRequest} requestParameters Request parameters.
+     * @param {AttachmentsControllerApiSaveProxy1Request} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof AttachmentsControllerApi
      */
-    public saveProxy(requestParameters: AttachmentsControllerApiSaveProxyRequest, options?: RawAxiosRequestConfig) {
-        return AttachmentsControllerApiFp(this.configuration).saveProxy(requestParameters.networkConfig, options).then((request) => request(this.axios, this.basePath));
+    public saveProxy1(requestParameters: AttachmentsControllerApiSaveProxy1Request, options?: RawAxiosRequestConfig) {
+        return AttachmentsControllerApiFp(this.configuration).saveProxy1(requestParameters.networkConfig, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

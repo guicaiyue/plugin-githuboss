@@ -52,7 +52,7 @@ public class AttachmentsController {
 
     // 查询 github 存储策略的根目录
     @GetMapping("/attachments/rootPath")
-    public Mono<String> getGitHubRootPath(@RequestParam("policyName") String policyName) {
+    public Mono<GithubOssPolicySettings> getGitHubRootPath(@RequestParam("policyName") String policyName) {
         return client.fetch(Policy.class, policyName)
                 .map(policy -> {
                     String configMapName = policy.getSpec() != null ? policy.getSpec().getConfigMapName() : null;
@@ -68,7 +68,8 @@ public class AttachmentsController {
                     if (path == null || path.isEmpty() || path.charAt(0) != '/') {
                         path = '/' + (path == null ? "" : path);
                     }
-                    return path;
+                    settings.setPath(path);
+                    return settings;
                 })
                 .doOnError(error -> log.error("查询策略根目录失败 policyName={}", policyName, error))
                 .onErrorMap(e -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,String.valueOf(e.getMessage())));
@@ -270,7 +271,8 @@ public class AttachmentsController {
     public Mono<java.util.List<NetworkTestItem>> networkTest() {
         Mono<NetworkTestItem> m1 = gitHubService.networkTest("github.com");
         Mono<NetworkTestItem> m2 = gitHubService.networkTest("api.github.com");
-        return Mono.zip(m1, m2)
-                .map(t -> java.util.List.of(t.getT1(), t.getT2()));
+        Mono<NetworkTestItem> m3 = gitHubService.networkTest("raw.githubusercontent.com");
+        return Mono.zip(m1, m2, m3)
+                .map(t -> java.util.List.of(t.getT1(), t.getT2(), t.getT3()));
     }
 }

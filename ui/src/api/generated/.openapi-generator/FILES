@@ -10,6 +10,7 @@ git_push.sh
 index.ts
 models/add-operation.ts
 models/copy-operation.ts
+models/github-oss-policy-settings.ts
 models/index.ts
 models/json-patch-inner.ts
 models/link-req-object.ts

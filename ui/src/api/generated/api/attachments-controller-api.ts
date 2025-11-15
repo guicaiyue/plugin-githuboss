@@ -22,6 +22,8 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { GithubOssPolicySettings } from '../models';
+// @ts-ignore
 import type { LinkReqObject } from '../models';
 // @ts-ignore
 import type { LinkRespObject } from '../models';
@@ -397,7 +399,7 @@ export const AttachmentsControllerApiFp = function(configuration?: Configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getGitHubRootPath(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async getGitHubRootPath(policyName: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GithubOssPolicySettings>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getGitHubRootPath(policyName, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AttachmentsControllerApi.getGitHubRootPath']?.[localVarOperationServerIndex]?.url;
@@ -502,7 +504,7 @@ export const AttachmentsControllerApiFactory = function (configuration?: Configu
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getGitHubRootPath(requestParameters: AttachmentsControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+        getGitHubRootPath(requestParameters: AttachmentsControllerApiGetGitHubRootPathRequest, options?: RawAxiosRequestConfig): AxiosPromise<GithubOssPolicySettings> {
             return localVarFp.getGitHubRootPath(requestParameters.policyName, options).then((request) => request(axios, basePath));
         },
         /**

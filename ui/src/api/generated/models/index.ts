@@ -1,5 +1,6 @@
 export * from './add-operation';
 export * from './copy-operation';
+export * from './github-oss-policy-settings';
 export * from './json-patch-inner';
 export * from './link-req-object';
 export * from './link-resp-object';

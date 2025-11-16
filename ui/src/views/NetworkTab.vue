@@ -13,7 +13,7 @@
           type="text"
           name="proxyPath"
           label="代理地址"
-          help="例如：http://127.0.0.1:7890 或 socks://127.0.0.1:7891"
+          help="例如：127.0.0.1:7890"
           v-model="form.proxyPath"
         />
         <FormKit type="radio" name="enabled" label="启用代理" v-model="form.enabled" :options="[

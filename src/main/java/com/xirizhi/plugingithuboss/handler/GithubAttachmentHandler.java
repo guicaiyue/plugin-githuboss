@@ -160,11 +160,10 @@ public class GithubAttachmentHandler implements AttachmentHandler {
                     ? (baseOriginal + "-" + timePrefix + (ext != null ? ("." + ext) : ""))
                     : (timePrefix + (ext != null ? ("." + ext) : ""));
 
-            String tempFilePath = Paths.get(settings.getPath().trim(),folderDir.trim(),filename)
+            String tempFilePath = Paths.get(Optional.ofNullable(settings.getPath()).orElse("").trim(),folderDir.trim(),filename)
                     .normalize()
                     .toString();
             final String filePath = tempFilePath.startsWith("/") ? tempFilePath.substring(1) : tempFilePath;
-            System.out.println("ssssssssssddd"+filePath);
             synchronized (RESERVED_PATHS) {
                 if (!RESERVED_PATHS.contains(filePath)) {
                     RESERVED_PATHS.add(filePath);

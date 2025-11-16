@@ -303,20 +303,9 @@ public class GitHubService {
 
     // 解析代理配置，仅支持 HTTP 代理，返回可应用于 HttpClient 的 ProxySelector
     private static ProxySelector buildProxySelector(NetworkConfig cfg) {
-        String path = cfg.getProxyPath();
-        if (path == null || path.isBlank()) return null;
-        if (!path.startsWith("http://")) return null;
-        String noSchema = path.substring("http://".length());
-        int idx = noSchema.lastIndexOf(':');
-        if (idx <= 0 || idx >= noSchema.length() - 1) return null;
-        String host = noSchema.substring(0, idx);
-        int port;
-        try { port = Integer.parseInt(noSchema.substring(idx + 1)); } catch (Exception e) { return null; }
-        InetSocketAddress addr = new InetSocketAddress(host, port);
-        return new ProxySelector() {
-            @Override public java.util.List<Proxy> select(URI uri) { return java.util.List.of(new Proxy(Proxy.Type.HTTP, addr)); }
-            @Override public void connectFailed(URI uri, java.net.SocketAddress sa, java.io.IOException ioe) { }
-        };
+        String[] path = cfg.getProxyPath().split(":");
+        log.info("构建 HTTP 代理 {}:{}", path[0].trim(), path[1].trim());
+        return ProxySelector.of(new InetSocketAddress(path[0], Integer.parseInt(path[1])));
     }
 
     @Data
@@ -363,9 +352,12 @@ public class GitHubService {
                         .method("HEAD", HttpRequest.BodyPublishers.noBody())
                         .build();
                 HttpResponse<Void> resp = http.send(req, HttpResponse.BodyHandlers.discarding());
+                long costMs = (System.nanoTime() - start) / 1_000_000;
+                log.info("测试 {} 连通性，HTTP 状态码 {}，耗时 {}ms resp {}", host, resp.statusCode(), costMs, resp.body());
                 status = resp.statusCode();
             } catch (Exception ex) {
                 error = ex.getMessage();
+                log.error("测试 {} 连通性失败，耗时 {}ms，错误：{}", host, (System.nanoTime() - start) / 1_000_000, error,ex);
             }
             long costMs = (System.nanoTime() - start) / 1_000_000;
             item.setHttpStatus(status);

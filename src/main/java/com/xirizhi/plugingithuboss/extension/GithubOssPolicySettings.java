@@ -14,5 +14,5 @@ public class GithubOssPolicySettings {
     private String branch;
     private String namePrefix; // 是否在重命名时追加原文件名后缀
     private String token;       // GitHub PAT
-    private Integer minSizeMB;  // 上传文件最小大小(MB)
+    private Double minSizeMB;  // 上传文件最小大小(MB), 使用 Double 支持小数如 0.01
 }

@@ -21,3 +21,4 @@ spec:
   description: "使用Github存放附件的插件"
   license:
     - name: "GPL-3.0"
+  version: "1.0.8"

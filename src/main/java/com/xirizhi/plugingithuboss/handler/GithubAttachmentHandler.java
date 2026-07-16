@@ -62,6 +62,37 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     private static final java.util.Set<String> RESERVED_PATHS = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     /**
+     * 解析策略配置，带 fallback。
+     * Halo 有时会将插件级 ConfigMap（githuboss-configMap，只有 basic/network）
+     * 误传给 AttachmentHandler，而不是策略级 ConfigMap（有 default 键含 token）。
+     * 此方法检测到 default 键缺失时，自动通过 policy.configMapName 获取正确的 ConfigMap。
+     */
+    private Mono<GithubOssPolicySettings> resolveSettings(ConfigMap configMap, Policy policy) {
+        var settingJson = configMap.getData().get("default");
+        if (settingJson != null && !settingJson.isBlank() && !"{}".equals(settingJson.trim())) {
+            return Mono.just(JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class));
+        }
+        // Fallback: 通过 policy 的 configMapName 获取策略专属 ConfigMap
+        var cmName = policy.getSpec().getConfigMapName();
+        if (cmName != null && !cmName.isBlank()) {
+            log.warn("ConfigMap '{}' 缺少 'default' 配置，fallback 到策略 ConfigMap '{}'",
+                    configMap.getMetadata().getName(), cmName);
+            return client.fetch(ConfigMap.class, cmName)
+                    .map(cm -> {
+                        var json = cm.getData().getOrDefault("default", "{}");
+                        return JsonUtils.jsonToObject(json, GithubOssPolicySettings.class);
+                    })
+                    .switchIfEmpty(Mono.fromCallable(() -> {
+                        log.error("策略 ConfigMap '{}' 不存在，使用空配置", cmName);
+                        return JsonUtils.jsonToObject("{}", GithubOssPolicySettings.class);
+                    }));
+        }
+        log.error("ConfigMap '{}' 缺少 'default' 配置且 policy 无 configMapName，使用空配置",
+                configMap.getMetadata().getName());
+        return Mono.just(JsonUtils.jsonToObject("{}", GithubOssPolicySettings.class));
+    }
+
+    /**
      * 上传文件：
      * - 从 Policy 与 ConfigMap 中读取仓库别名（repoName）等配置
      * - 根据策略生成路径并上传到 GitHub
@@ -72,35 +103,30 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         final FilePart filePart = context.file();
         final Policy policy = context.policy();
         
-        // 解析嵌套的配置数据
-        var settingJson = context.configMap().getData().getOrDefault("default", "{}");
-        GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-        
-        // 简单的 JSON 解析（手动解析关键字段）
-        final String owner = settings.getOwner();
-        final String repoName = settings.getRepoName();
+        return resolveSettings(context.configMap(), policy)
+                .flatMap(settings -> {
+                    final String owner = settings.getOwner();
+                    final String repoName = settings.getRepoName();
+                    var pathBuild = buildPathAndName(settings, filePart);
 
-        // 新增：在上传最前阶段生成并占位唯一文件名/路径（秒级加一，不等待真实时间流逝）
-        var pathBuild = buildPathAndName(settings, filePart);
-        
-        // 文件大小检测优先于 GitHub 连通性
-        return readFileBytes(filePart)
-                .flatMap(bytes -> validateMinSize(bytes, settings.getMinSizeMB()))
-                .flatMap(bytes -> gitHubService.checkConnectivity()
-                        .flatMap(isConnected -> isConnected
-                                ? Mono.just(bytes)
-                                : Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"))))
-                .flatMap(bytes -> gitHubService.uploadContent(settings, pathBuild.filePath(), bytes,
-                            "Upload via Halo AttachmentHandler")
-                        .map(sha -> {
-                            log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}", owner, repoName, owner + "/" + repoName, pathBuild.filePath(), sha);
-                            Attachment attachment = buildAttachment(pathBuild.filePath(), sha, (long) bytes.length, policy);
-                            return attachment;
-                        }))
-                .doFinally(signalType -> {
-                    synchronized (RESERVED_PATHS) {
-                        RESERVED_PATHS.remove(pathBuild.filePath());
-                    }
+                    return readFileBytes(filePart)
+                            .flatMap(bytes -> validateMinSize(bytes, settings.getMinSizeMB()))
+                            .flatMap(bytes -> gitHubService.checkConnectivity()
+                                    .flatMap(isConnected -> isConnected
+                                            ? Mono.just(bytes)
+                                            : Mono.error(new IllegalStateException("GitHub 无法访问，请检查网络连接或配置代理"))))
+                            .flatMap(bytes -> gitHubService.uploadContent(settings, pathBuild.filePath(), bytes,
+                                        "Upload via Halo AttachmentHandler")
+                                    .map(sha -> {
+                                        log.info("文件上传成功,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}, sha: {}", owner, repoName, owner + "/" + repoName, pathBuild.filePath(), sha);
+                                        Attachment attachment = buildAttachment(pathBuild.filePath(), sha, (long) bytes.length, policy);
+                                        return attachment;
+                                    }))
+                            .doFinally(signalType -> {
+                                synchronized (RESERVED_PATHS) {
+                                    RESERVED_PATHS.remove(pathBuild.filePath());
+                                }
+                            });
                 })
                 .onErrorMap(GitHubExceptionHandler::map);
     }
@@ -186,61 +212,53 @@ public class GithubAttachmentHandler implements AttachmentHandler {
     @Override
     public Mono<Attachment> delete(DeleteContext context) {
         final Attachment attachment = context.attachment();
+        final Policy policy = context.policy();
         
-        // 解析嵌套的配置数据
-        var settingJson = context.configMap().getData().getOrDefault("default", "{}");
-        GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-        
-        final String sha = attachment.getMetadata().getAnnotations().get("sha");
-        final String path = attachment.getMetadata().getAnnotations().remove("path");
-        
-        return Mono.defer(() -> {
-                    log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", settings.getOwner(), settings.getRepoName(), settings.getOwner() + "/" + settings.getRepoName(), path);
+        return resolveSettings(context.configMap(), policy)
+                .flatMap(settings -> {
+                    final String sha = attachment.getMetadata().getAnnotations().get("sha");
+                    final String path = attachment.getMetadata().getAnnotations().remove("path");
 
-                    boolean unLinked = Boolean.parseBoolean(attachment.getMetadata().getAnnotations().getOrDefault(Constant.ANNOTATION_UNLINKED, Boolean.FALSE.toString()));
-                    if (unLinked) {
-                        log.info("附件已解除关联，仅逻辑删除 attachment: {}", JsonUtils.objectToJson(attachment));
-                        return Mono.just(attachment);
-                    } else {
-                        return gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler")
-                                .then(Mono.fromCallable(() -> {
-                                    log.info("远程文件删除成功 attachment: {}", JsonUtils.objectToJson(attachment));
-                                    return attachment;
-                                }));
-                    }
+                    return Mono.defer(() -> {
+                                log.info("开始删除远程文件,owner: {}, repoName: {}, 完整仓库名: {}, 完整路径: {}", settings.getOwner(), settings.getRepoName(), settings.getOwner() + "/" + settings.getRepoName(), path);
+
+                                boolean unLinked = Boolean.parseBoolean(attachment.getMetadata().getAnnotations().getOrDefault(Constant.ANNOTATION_UNLINKED, Boolean.FALSE.toString()));
+                                if (unLinked) {
+                                    log.info("附件已解除关联，仅逻辑删除 attachment: {}", JsonUtils.objectToJson(attachment));
+                                    return Mono.just(attachment);
+                                } else {
+                                    return gitHubService.deleteContent(settings, path, sha, "Delete via Halo AttachmentHandler")
+                                            .then(Mono.fromCallable(() -> {
+                                                log.info("远程文件删除成功 attachment: {}", JsonUtils.objectToJson(attachment));
+                                                return attachment;
+                                            }));
+                                }
+                            })
+                            .doOnError(error -> log.error("删除过程中发生错误", error));
                 })
-                .doOnError(error -> log.error("删除过程中发生错误", error))
                 .onErrorMap(GitHubExceptionHandler::map);
     }
 
     @Override
     public Mono<URI> getSharedURL(Attachment attachment, Policy policy, ConfigMap configMap, Duration ttl) {
-        // 对于 GitHub 内容，CDN 地址即可视为共享 URL，这里直接返回 permalink 或基于路径构建 CDN URL
-        try {
-            String path = attachment.getMetadata().getAnnotations().get("path");
-
-            var settingJson = configMap.getData().getOrDefault("default", "{}");
-            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-            
-            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
-        } catch (Exception e) {
-            return Mono.error(GitHubExceptionHandler.map(e));
+        String path = attachment.getMetadata().getAnnotations().get("path");
+        if (path == null) {
+            return Mono.error(new IllegalArgumentException("附件缺少 path 注解"));
         }
+        return resolveSettings(configMap, policy)
+                .flatMap(settings -> gitHubService.buildCdnUrl(settings, path).map(URI::create))
+                .onErrorMap(GitHubExceptionHandler::map);
     }
 
     @Override
     public Mono<URI> getPermalink(Attachment attachment, Policy policy, ConfigMap configMap) {
-        // GitHub 场景：permalink 使用 CDN 地址
-        try {
-            String path = attachment.getMetadata().getAnnotations().get("path");
-            
-            var settingJson = configMap.getData().getOrDefault("default", "{}");
-            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-                
-            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
-        } catch (Exception e) {
-            return Mono.error(GitHubExceptionHandler.map(e));
+        String path = attachment.getMetadata().getAnnotations().get("path");
+        if (path == null) {
+            return Mono.error(new IllegalArgumentException("附件缺少 path 注解"));
         }
+        return resolveSettings(configMap, policy)
+                .flatMap(settings -> gitHubService.buildCdnUrl(settings, path).map(URI::create))
+                .onErrorMap(GitHubExceptionHandler::map);
     }
 
     public <T> Mono<T> authenticationConsumer(Function<Authentication, Mono<T>> func) {
@@ -271,6 +289,10 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         Attachment attachment = new Attachment();
         attachment.setMetadata(metadata);
         attachment.setSpec(as);
+        
+        // 初始化 status 避免 Halo 2.25+ 调用 setPermalink 时 NPE
+        Attachment.AttachmentStatus status = new Attachment.AttachmentStatus();
+        attachment.setStatus(status);
 
         return attachment;
     }
@@ -293,7 +315,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
      * 通用：校验文件最小大小（单位 MB），不满足时返回 Mono.error。
      * minSizeMB 为 null 或 <=0 时直接回传 bytes。
      */
-    private Mono<byte[]> validateMinSize(byte[] bytes, Integer minSizeMB) {
+    private Mono<byte[]> validateMinSize(byte[] bytes, Double minSizeMB) {
         log.info("校验文件最小大小，文件大小: {}，最小限制: {}MB", bytes.length, minSizeMB);
         if (minSizeMB == null || minSizeMB <= 0) {
             return Mono.just(bytes);
@@ -301,7 +323,7 @@ public class GithubAttachmentHandler implements AttachmentHandler {
         if (bytes == null) {
             return Mono.error(new IllegalArgumentException("文件内容为空"));
         }
-        long minBytes = minSizeMB * 1024L * 1024L;
+        long minBytes = (long) (minSizeMB * 1024L * 1024L);
         if ((long) bytes.length > minBytes) {
             return Mono.error(new IllegalArgumentException("文件大小高于最大限制: " + minSizeMB + "MB"));
         }

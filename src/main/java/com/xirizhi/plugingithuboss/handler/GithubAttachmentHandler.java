@@ -215,14 +215,14 @@ public class GithubAttachmentHandler implements AttachmentHandler {
 
     @Override
     public Mono<URI> getSharedURL(Attachment attachment, Policy policy, ConfigMap configMap, Duration ttl) {
-        // 对于 GitHub 内容，CDN 地址即可视为共享 URL，这里直接返回 permalink 或基于路径构建 CDN URL
+        // 对于 GitHub 内容，CDN 地址即可视为共享 URL；若附件未通过本插件上传（缺少 path 注解），
+        // 则回退使用附件自身已有的 permalink，避免将已有附件链接错误地替换为 jsDelivr 地址
         try {
             String path = attachment.getMetadata().getAnnotations().get("path");
-
-            var settingJson = configMap.getData().getOrDefault("default", "{}");
-            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-            
-            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
+            if (path == null || path.isBlank()) {
+                return Mono.just(URI.create(resolveExistingPermalink(attachment)));
+            }
+            return buildCdnUri(attachment, configMap, path);
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
         }
@@ -230,14 +230,14 @@ public class GithubAttachmentHandler implements AttachmentHandler {
 
     @Override
     public Mono<URI> getPermalink(Attachment attachment, Policy policy, ConfigMap configMap) {
-        // GitHub 场景：permalink 使用 CDN 地址
+        // GitHub 场景：permalink 使用 CDN 地址；仅对通过本插件上传且带有 path 注解的附件生成 jsDelivr 地址，
+        // 否则保留附件原有访问链接，避免影响插件安装前已存在的附件
         try {
             String path = attachment.getMetadata().getAnnotations().get("path");
-            
-            var settingJson = configMap.getData().getOrDefault("default", "{}");
-            GithubOssPolicySettings settings = JsonUtils.jsonToObject(settingJson, GithubOssPolicySettings.class);
-                
-            return gitHubService.buildCdnUrl(settings, path).map(URI::create);
+            if (path == null || path.isBlank()) {
+                return Mono.just(URI.create(resolveExistingPermalink(attachment)));
+            }
+            return buildCdnUri(attachment, configMap, path);
         } catch (Exception e) {
             return Mono.error(GitHubExceptionHandler.map(e));
         }
